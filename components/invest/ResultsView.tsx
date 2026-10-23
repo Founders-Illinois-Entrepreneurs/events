@@ -24,7 +24,7 @@ export default function ResultsView({ results }: { results: Results }) {
               <div className="bar-fill" style={{ width: `${(t.total / max) * 100}%` }} />
             </div>
             <div className="mono mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-2">
-              <span>Avg rubric: {t.avg_score ?? '–'}/5</span>
+              <span>Rubric score: {t.avg_score ?? '–'}/5</span>
               {honesty && (
                 <span className="font-bold text-blue">
                   Honesty &amp; Risks: {t.pillar_avgs[honesty.key] ?? '–'}/5
@@ -35,7 +35,7 @@ export default function ResultsView({ results }: { results: Results }) {
         ))}
         <p className="mono text-xs text-ink-3">
           {results.submitted_teams} table{results.submitted_teams === 1 ? '' : 's'} submitted ·{' '}
-          {money(event.starting_capital)} each · ties go to the higher average rubric score
+          {money(event.starting_capital)} each · ties go to the higher rubric score
         </p>
       </section>
 

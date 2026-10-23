@@ -7,7 +7,7 @@ The first tool is the **R&D Pitch Evaluation** investment game:
 1. The R&D teams pitch (e.g. at their midpoint presentations).
 2. Club members sit at investor tables (a few people each) and use **one phone per table**. Each table gets fake capital (default **$200,000**) and must invest **all of it** across the R&D teams.
 3. For every R&D team, the table writes **why** it invested that amount and **what would make it invest more**, and scores the team 1–5 on each pillar of the rubric.
-4. The R&D team with the most investment wins. Ties go to the higher average rubric score.
+4. The R&D team with the most investment wins. Ties go to the higher rubric score (the weighted average of its pillar scores).
 
 It's built to teach. Members learn what investors look for, because the rubric pillars are the lesson. R&D teams get specific, honest feedback to act on before their final pitch.
 

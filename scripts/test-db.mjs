@@ -79,13 +79,32 @@ await throwsLike(() => q(`select invest_create_event('Bad', 'Bad Slug!')`), /che
 
 console.log('\nTracks (own venture vs. startup partner)')
 const partnerText = await q(`select count(*)::int as n from invest_rubric_pillars where event_id = $1 and partner_prompt <> ''`, [event.id])
-ok(partnerText[0].n === 7, 'every default pillar has startup-partner wording')
+ok(partnerText[0].n === 6, 'every default pillar except Pitch Execution has startup-partner wording')
 const [gamma] = await q(`select track from invest_presenter_teams where event_id = $1 and name = 'Team Gamma'`, [clonedId])
 ok(gamma.track === 'partner', 'cloning keeps each team\'s track')
 await throwsLike(() => q(`update invest_presenter_teams set track = 'other' where event_id = $1`, [event.id]), /check/, 'rejects unknown tracks')
 const [{ invest_create_event: freshId }] = await q(`select invest_create_event('Fresh', 'fresh-one')`)
 const fresh = await q(`select count(*)::int as n from invest_rubric_pillars where event_id = $1 and partner_prompt <> ''`, [freshId])
-ok(fresh[0].n === 7, 'new events get partner wording too')
+ok(fresh[0].n === 6, 'new events get partner wording too')
+
+console.log('\nRubric')
+const freshKeys = (await q('select key from invest_rubric_pillars where event_id = $1 order by sort_order', [freshId])).map((r) => r.key)
+ok(freshKeys.join() === 'problem,customer,solution,product,business,traction,pitch', 'new events get the seven default pillars in pitch order')
+const [{ n: complete }] = await q(
+  `select count(*)::int as n from invest_rubric_pillars where event_id = $1
+   and listen_for <> '' and weak_signals <> '' and partial_signals <> '' and strong_signals <> '' and red_flags <> ''`, [freshId])
+ok(complete === 7, 'every default pillar has a checklist, a 1/3/5 score guide and red flags')
+const weights = Object.fromEntries((await q('select key, weight::float8 as w from invest_rubric_pillars where event_id = $1', [freshId])).map((r) => [r.key, r.w]))
+ok(weights.traction === 1.5 && weights.business === 0.5 && weights.problem === 1, 'traction counts 1.5x, business model counts half')
+ok(!(await q(`select listen_for from invest_rubric_pillars where event_id = $1 and key = 'problem'`, [freshId]))[0].listen_for.includes('\r'), 'checklists are stored one item per line')
+const [{ n: copied }] = await q(
+  `select count(*)::int as n from invest_rubric_pillars a join invest_rubric_pillars b on a.key = b.key
+   where a.event_id = $1 and b.event_id = $2 and a.listen_for = b.listen_for and a.weak_signals = b.weak_signals
+     and a.partial_signals = b.partial_signals and a.note = b.note and a.weight = b.weight
+     and a.partner_listen_for = b.partner_listen_for`, [event.id, clonedId])
+ok(copied === 7, 'cloning copies checklists, score guides, notes and weights')
+await throwsLike(() => q(`update invest_rubric_pillars set weight = 0 where event_id = $1`, [freshId]), /check/, 'weights must be positive')
+await throwsLike(() => q(`update invest_rubric_pillars set weight = 6 where event_id = $1`, [freshId]), /check/, 'weights are capped at 5')
 
 console.log('\nJoining teams')
 const [t1, t2] = investors
@@ -174,13 +193,37 @@ ok(byName['Team Beta'].feedback.every((f) => f.investor === null), 'feedback is 
 const [{ r: orgView }] = await q('select invest_results($1, true) as r', [event.id])
 ok(orgView.teams[0].feedback.every((f) => f.investor), 'organizers always see which table wrote what')
 ok(orgView.teams.some((t) => t.feedback.some((f) => f.auto)), 'auto-submitted tables are marked')
-ok(byName['Team Beta'].pillar_avgs.honesty === 4.5, 'honesty pillar average is reported')
+ok(byName['Team Beta'].pillar_avgs.traction === 4.5, 'each pillar average is reported')
 ok(r.starred.length === 1, 'starred thesis is included')
 ok(r.submitted_teams === 2, 'counts submitted teams')
 ok(byName['Team Gamma'].track === 'partner', 'results include each team\'s track')
 await q('update events set reveal_names = true where id = $1', [event.id])
 const [{ r: named }] = await q('select invest_results($1) as r', [event.id])
 ok(named.teams[0].feedback.some((f) => f.investor === 'Investors 1'), 'names shown when the admin turns them on')
+
+console.log('\nWeighted rubric scores')
+// Two teams with the same money and the same plain average: one is strong on
+// traction (counts 1.5x), the other on business model (counts half).
+const [{ invest_create_event: wId }] = await q(`select invest_create_event('Weights', 'weights-test')`)
+const wPillars = await q('select id, key from invest_rubric_pillars where event_id = $1', [wId])
+const [w1] = await q(`insert into invest_presenter_teams (event_id, name) values ($1, 'W1') returning id`, [wId])
+const [w2] = await q(`insert into invest_presenter_teams (event_id, name) values ($1, 'W2') returning id`, [wId])
+const [wt] = await q(`insert into invest_investor_teams (event_id, name) values ($1, 'WT') returning id`, [wId])
+const dave = await addMember('Dave')
+await q('select invest_join_team($1, $2)', [dave.id, wt.id])
+await q(`update events set status = 'open' where id = $1`, [wId])
+await save(dave, wt.id, w1.id, 100000)
+await save(dave, wt.id, w2.id, 100000)
+for (const pl of wPillars) {
+  await score(dave, wt.id, w1.id, pl.id, pl.key === 'traction' ? 5 : 1)
+  await score(dave, wt.id, w2.id, pl.id, pl.key === 'business' ? 5 : 1)
+}
+await q('select invest_submit($1, $2)', [dave.id, wt.id])
+const [{ r: wr }] = await q('select invest_results($1, true) as r', [wId])
+const wByName = Object.fromEntries(wr.teams.map((t) => [t.name, t]))
+// Weights add up to 7: W1 = (1.5*5 + 5.5*1) / 7 = 1.86, W2 = (0.5*5 + 6.5*1) / 7 = 1.29.
+ok(wByName.W1.avg_score === 1.86 && wByName.W2.avg_score === 1.29, 'rubric scores are weighted averages')
+ok(wByName.W1.rank === 1 && wByName.W2.rank === 2, 'ties are broken by the weighted rubric score')
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 process.exit(failed ? 1 : 0)

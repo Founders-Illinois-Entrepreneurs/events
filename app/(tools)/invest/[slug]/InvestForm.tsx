@@ -3,8 +3,18 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { money, shortMoney } from '@/lib/format'
+import {
+  hasScoreGuide,
+  SCORE_LEVELS,
+  scoreGuide,
+  SPLIT_STYLES,
+  suggestSplit,
+  weightedScore,
+  weightLabel,
+} from '@/lib/rubric'
 import { pillarText, TRACK_LABEL } from '@/lib/types'
 import type { Allocation, ClubEvent, InvestorTeam, Pillar, PresenterTeam, RubricScore } from '@/lib/types'
+import { Checklist, ScoreBadge, ScoreGuide } from '@/components/invest/Rubric'
 import { saveAllocation as saveAllocationAction, saveScore, submitPortfolio } from '../actions'
 
 // One phone per table, so there is no syncing between devices: this screen is
@@ -13,7 +23,6 @@ import { saveAllocation as saveAllocationAction, saveScore, submitPortfolio } fr
 type Draft = { amount: number; rationale: string; invest_more_if: string }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-const SCORE_LABELS = ['', 'Weak', 'Below avg', 'OK', 'Strong', 'Excellent']
 const EMPTY: Draft = { amount: 0, rationale: '', invest_more_if: '' }
 
 // "50,000" / "$50000" / "50k" / "0.2m" -> whole dollars.
@@ -58,6 +67,8 @@ export default function InvestForm({
   const [reviewing, setReviewing] = useState(false)
   // Raw text of the amount box being typed in (formatted with commas once you leave it).
   const [amountText, setAmountText] = useState<{ id: string; text: string } | null>(null)
+  // How strongly the suggested split favors the top-scoring teams (index into SPLIT_STYLES).
+  const [splitStyle, setSplitStyle] = useState(2)
   const [submitting, startSubmit] = useTransition()
 
   // Latest drafts for the debounced saver, unsaved cards, and in-flight saves to flush before submit.
@@ -198,7 +209,18 @@ export default function InvestForm({
   const fieldsLeft = todo.reduce((s, t) => s + t.left, 0)
   const ready = remaining === 0 && fieldsLeft === 0
 
-  const jump = (id: string) => document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Each team's weighted rubric score so far, and the split those scores suggest.
+  const weighted = pillars.some((pl) => pl.weight !== 1)
+  const teamScores = presenters.map((p) => weightedScore(pillars, (pillarId) => scores[`${p.id}:${pillarId}`]))
+  const suggested = suggestSplit(teamScores, capital, splitStyle)
+  const anyScored = teamScores.some((s) => s != null)
+
+  function applySuggested() {
+    presenters.forEach((p, i) => update(p.id, { amount: suggested[i] }))
+  }
+
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const jump = (id: string) => scrollTo(`card-${id}`)
 
   function submit() {
     startSubmit(async () => {
@@ -223,11 +245,15 @@ export default function InvestForm({
     <div className="space-y-6 pb-32">
       <div className="alert alert-info space-y-1">
         <p>
-          Split <strong>all {money(capital)}</strong> across the teams. For each team: an amount, why, what would make
-          you invest more, and a 1–5 score on each pillar.
+          Split <strong>all {money(capital)}</strong> across the teams. For each team: a 1–5 score on each pillar, an
+          amount, why, and what would make you invest more.
         </p>
         <p className="text-sm">
-          Tip: go one team at a time and talk it through as a table. Settle the dollar split together at the end.
+          Tip: score each team as it pitches. At the end,{' '}
+          <button type="button" className="font-semibold underline" onClick={() => scrollTo('split')}>
+            split the money
+          </button>{' '}
+          together: your scores suggest a starting point.
         </p>
       </div>
 
@@ -250,12 +276,14 @@ export default function InvestForm({
       {presenters.map((p, i) => {
         const d = draftOf(p.id)
         const pct = capital ? Math.round((d.amount / capital) * 100) : 0
+        const rubric = teamScores[i]
         return (
           <section key={p.id} id={`card-${p.id}`} className="card card-shadow scroll-mt-4 space-y-5">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="eyebrow">Team {i + 1}</p>
                 <span className={`chip ${p.track === 'partner' ? 'chip-blue' : 'chip-muted'}`}>{TRACK_LABEL[p.track]}</span>
+                {rubric != null && <span className="chip">Rubric {rubric.toFixed(1)}/5</span>}
               </div>
               <h2 className="display text-4xl">{p.name}</h2>
               {p.one_liner && <p className="text-ink-2">{p.one_liner}</p>}
@@ -268,10 +296,93 @@ export default function InvestForm({
               )}
             </div>
 
+            <div>
+              <p className="field-label">Rubric · 1 missing → 5 convincing · tap a pillar for what to listen for</p>
+              <div className="divide-y divide-line rounded-[6px] border-2 border-ink">
+                {pillars.map((pl) => {
+                  const v = scores[`${p.id}:${pl.id}`]
+                  const text = pillarText(pl, p.track)
+                  const guided = hasScoreGuide(pl)
+                  return (
+                    <div key={pl.id} className="space-y-2 px-3 py-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <details className="min-w-0 flex-1">
+                          <summary className="cursor-pointer">
+                            <span className="font-semibold">{pl.label}</span>
+                            {weighted && pl.weight !== 1 && (
+                              <span className="mono ml-2 text-xs text-ink-3">{weightLabel(pl.weight)}</span>
+                            )}
+                            <span className="block text-sm text-ink-2">{text.prompt}</span>
+                          </summary>
+                          <div className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
+                            {guided ? (
+                              <>
+                                <div>
+                                  <span className="field-label">Listen for</span>
+                                  <Checklist text={text.listen} kind={p.track === 'partner' ? 'partner' : 'listen'} />
+                                </div>
+                                <div className="space-y-3">
+                                  <div>
+                                    <span className="field-label">Score guide</span>
+                                    <ScoreGuide pillar={pl} />
+                                  </div>
+                                  {text.red.trim() && (
+                                    <div>
+                                      <span className="field-label text-red">Red flags</span>
+                                      <Checklist text={text.red} kind="red" />
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div>
+                                  <span className="field-label text-green">Strong looks like</span>
+                                  <Checklist text={text.strong} kind="strong" />
+                                </div>
+                                <div>
+                                  <span className="field-label text-red">Red flags</span>
+                                  <Checklist text={text.red} kind="red" />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </details>
+                        <div className="score-row w-full sm:w-auto" role="group" aria-label={`${pl.label} score for ${p.name}`}>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              className="score-btn"
+                              aria-pressed={v === n}
+                              aria-label={`${pl.label}: ${n}, ${SCORE_LEVELS[n]}`}
+                              title={SCORE_LEVELS[n]}
+                              onClick={() => setScore(p.id, pl.id, n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {v && guided && (
+                        <p className="flex items-start gap-2 text-xs text-ink-2">
+                          <ScoreBadge n={v} small />
+                          <span>
+                            <strong className="text-ink">{SCORE_LEVELS[v]}.</strong> {scoreGuide(pl, v)}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
               <div>
                 <label className="field-label" htmlFor={`amt-${p.id}`}>
                   Investment · {pct}% of capital
+                  {rubric != null && <span className="text-ink-3"> · suggested {money(suggested[i])}</span>}
                 </label>
                 <input
                   type="range"
@@ -343,52 +454,89 @@ export default function InvestForm({
                 />
               </div>
             </div>
-
-            <div>
-              <p className="field-label">Rubric · 1 weak → 5 excellent · tap ▸ for what to look for</p>
-              <div className="divide-y divide-line rounded-[6px] border-2 border-ink">
-                {pillars.map((pl) => {
-                  const v = scores[`${p.id}:${pl.id}`]
-                  const text = pillarText(pl, p.track)
-                  return (
-                    <div key={pl.id} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                      <details className="min-w-0 flex-1">
-                        <summary className="cursor-pointer font-semibold">
-                          {pl.label} <span className="font-normal text-ink-3">· {text.prompt}</span>
-                        </summary>
-                        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                          <p>
-                            <span className="field-label text-green">Strong looks like</span>
-                            {text.strong}
-                          </p>
-                          <p>
-                            <span className="field-label text-red">Red flags</span>
-                            {text.red}
-                          </p>
-                        </div>
-                      </details>
-                      <div className="score-row w-full sm:w-auto" role="group" aria-label={`${pl.label} score for ${p.name}`}>
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            className="score-btn"
-                            aria-pressed={v === n}
-                            title={SCORE_LABELS[n]}
-                            onClick={() => setScore(p.id, pl.id, n)}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
           </section>
         )
       })}
+
+      {/* Turn the rubric scores into a starting split */}
+      <section id="split" className="card card-shadow scroll-mt-4 space-y-4">
+        <div>
+          <p className="eyebrow">Your table&apos;s {money(capital)}</p>
+          <h2 className="display mt-1 text-4xl">Split the money</h2>
+          <p className="mt-1 text-sm text-ink-2">
+            Suggested amounts come from each team&apos;s {weighted ? 'weighted ' : ''}rubric score. Start from them, then
+            adjust as a table and explain each amount on the team&apos;s card.
+          </p>
+        </div>
+        <div className="space-y-1">
+          <label className="field-label" htmlFor="split-style">
+            How to split it
+          </label>
+          <input
+            id="split-style"
+            type="range"
+            min={0}
+            max={SPLIT_STYLES.length - 1}
+            step={1}
+            value={splitStyle}
+            onChange={(e) => setSplitStyle(Number(e.target.value))}
+          />
+          {/* Labels sit under the slider's stops: first and last flush with the ends, the rest centered. */}
+          <div className="mono relative h-4 text-[0.65rem] uppercase leading-tight">
+            {SPLIT_STYLES.map((s, i) => {
+              const last = SPLIT_STYLES.length - 1
+              return (
+                <span
+                  key={s.label}
+                  style={{ left: `${(i / last) * 100}%` }}
+                  className={`absolute top-0 whitespace-nowrap ${
+                    i === 0 ? '' : i === last ? '-translate-x-full' : '-translate-x-1/2'
+                  } ${i === splitStyle ? 'font-bold text-ink' : 'text-ink-3'}`}
+                >
+                  {s.label}
+                </span>
+              )
+            })}
+          </div>
+          <p className="pt-1 text-sm text-ink-2">{SPLIT_STYLES[splitStyle].hint}</p>
+        </div>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th className="text-right">Rubric</th>
+              <th className="text-right">Suggested</th>
+            </tr>
+          </thead>
+          <tbody>
+            {presenters.map((p, i) => {
+              const done = pillars.filter((pl) => scores[`${p.id}:${pl.id}`]).length
+              return (
+                <tr key={p.id}>
+                  <td>
+                    <span className="font-semibold">{p.name}</span>
+                    {done < pillars.length && (
+                      <span className="block text-xs text-ink-3">
+                        {done} of {pillars.length} pillars scored
+                      </span>
+                    )}
+                  </td>
+                  <td className="mono text-right">{teamScores[i] == null ? '–' : teamScores[i]!.toFixed(1)}</td>
+                  <td className="mono text-right">{teamScores[i] == null ? '–' : money(suggested[i])}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className="btn btn-orange" disabled={!anyScored} onClick={applySuggested}>
+            Use suggested amounts
+          </button>
+          <span className="text-xs text-ink-3">
+            {anyScored ? 'Replaces every amount above. You can still change them after.' : 'Score a team to see a suggestion.'}
+          </span>
+        </div>
+      </section>
 
       {/* Sticky money bar */}
       <div className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t-2 border-ink bg-paper">

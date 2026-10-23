@@ -389,7 +389,8 @@ export default async function AdminEventPage({
           <h2 className="display text-4xl">Rubric</h2>
           <p className="text-sm text-ink-2">
             These pillars are the lesson. Members see them on the &ldquo;What investors look for&rdquo; page and score every
-            team on each one. Keep the <span className="mono">honesty</span> pillar: its average is shown on the reveal.
+            team on each one. A team&apos;s rubric score is the weighted average of its pillar scores: it breaks ties and
+            suggests how each table splits its money. Put each checklist item and red flag on its own line.
           </p>
         </div>
         <div className="space-y-3">
@@ -491,14 +492,47 @@ function PillarForm({ eventId, p }: { eventId: string; p?: Pillar }) {
           <label className="field-label">Question</label>
           <input name="prompt" className="input" defaultValue={p?.prompt} />
         </div>
-        <div className="md:col-span-3 grid gap-3 md:grid-cols-2">
+        <div className="md:col-span-3 grid gap-3 md:grid-cols-[110px_1fr]">
           <div>
-            <label className="field-label text-green">Strong looks like</label>
-            <textarea name="strong_signals" className="input" defaultValue={p?.strong_signals} />
+            <label className="field-label">Weight</label>
+            <input
+              name="weight"
+              type="number"
+              min={0.5}
+              max={5}
+              step={0.5}
+              className="input mono"
+              defaultValue={p?.weight ?? 1}
+              title="1 = counts once, 1.5 = counts extra, 0.5 = counts half"
+            />
           </div>
           <div>
-            <label className="field-label text-red">Red flags</label>
-            <textarea name="red_flags" className="input" defaultValue={p?.red_flags} />
+            <label className="field-label">Note (optional)</label>
+            <input name="note" className="input" defaultValue={p?.note} placeholder="Shown under the question, e.g. why this pillar counts half" />
+          </div>
+        </div>
+        <div className="md:col-span-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <label className="field-label">Listen for · one per line</label>
+            <textarea name="listen_for" className="input" rows={4} defaultValue={p?.listen_for} />
+          </div>
+          <div>
+            <label className="field-label text-red">Red flags · one per line</label>
+            <textarea name="red_flags" className="input" rows={4} defaultValue={p?.red_flags} />
+          </div>
+        </div>
+        <div className="md:col-span-3 grid gap-3 md:grid-cols-3">
+          <div>
+            <label className="field-label text-red">Score guide · 1 Missing</label>
+            <textarea name="weak_signals" className="input" defaultValue={p?.weak_signals} />
+          </div>
+          <div>
+            <label className="field-label">Score guide · 3 Partial</label>
+            <textarea name="partial_signals" className="input" defaultValue={p?.partial_signals} />
+          </div>
+          <div>
+            <label className="field-label text-green">Score guide · 5 Convincing</label>
+            <textarea name="strong_signals" className="input" defaultValue={p?.strong_signals} />
           </div>
         </div>
         <details className="md:col-span-3 rounded-[6px] border-2 border-blue-2 bg-blue-soft p-3" open={!!p?.partner_prompt}>
@@ -509,6 +543,10 @@ function PillarForm({ eventId, p }: { eventId: string; p?: Pillar }) {
             <div>
               <label className="field-label">Question</label>
               <input name="partner_prompt" className="input" defaultValue={p?.partner_prompt} placeholder="Leave blank to use the main question" />
+            </div>
+            <div>
+              <label className="field-label">Listen for · one per line</label>
+              <textarea name="partner_listen_for" className="input" rows={3} defaultValue={p?.partner_listen_for} />
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div>

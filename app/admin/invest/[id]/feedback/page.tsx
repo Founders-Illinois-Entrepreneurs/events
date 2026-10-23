@@ -44,7 +44,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
             <p className="eyebrow">{r.event.name} · feedback for</p>
             <h2 className="display text-5xl">{t.name}</h2>
             <p className="mono text-sm">
-              Rank #{t.rank} of {r.teams.length} · {money(t.total)} invested · avg rubric {t.avg_score ?? '–'}/5
+              Rank #{t.rank} of {r.teams.length} · {money(t.total)} invested · rubric score {t.avg_score ?? '–'}/5
             </p>
           </div>
           <div className="card overflow-x-auto p-0">

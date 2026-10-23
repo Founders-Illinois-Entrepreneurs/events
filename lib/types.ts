@@ -57,6 +57,14 @@ export type Pillar = {
   partner_strong_signals: string
   partner_red_flags: string
   sort_order: number
+  // Rubric v2 (empty on older events): a checklist, a 1/3/5 score guide
+  // (weak_signals = 1, partial_signals = 3, strong_signals = 5), a note and a weight.
+  listen_for: string
+  weak_signals: string
+  partial_signals: string
+  note: string
+  weight: number
+  partner_listen_for: string
 }
 
 // The wording a pillar should show for a given team's track.
@@ -64,6 +72,7 @@ export function pillarText(p: Pillar, track: Track) {
   const partner = track === 'partner' && p.partner_prompt.trim() !== ''
   return {
     prompt: partner ? p.partner_prompt : p.prompt,
+    listen: partner ? p.partner_listen_for || p.listen_for : p.listen_for,
     strong: partner ? p.partner_strong_signals || p.strong_signals : p.strong_signals,
     red: partner ? p.partner_red_flags || p.red_flags : p.red_flags,
   }

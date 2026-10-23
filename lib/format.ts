@@ -8,6 +8,15 @@ export function shortMoney(n: number) {
   return `$${n}`
 }
 
+// Rubric text as checklist items: one per line, or one per sentence when written as a paragraph.
+export function checklist(text: string) {
+  const lines = text.split('\n').map((s) => s.trim()).filter(Boolean)
+  const items = lines.length > 1 ? lines : text.split(/(?<=[.!?]["”]?)\s+(?=["“A-Z])/)
+  return items
+    .map((s) => s.trim().replace(/^[-•*]\s*/, '').replace(/(?<!\.)\.$/, ''))
+    .filter(Boolean)
+}
+
 export function slugify(s: string) {
   return s
     .toLowerCase()

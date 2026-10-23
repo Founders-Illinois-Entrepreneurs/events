@@ -30,6 +30,15 @@ function int(fd: FormData, key: string, fallback = 0) {
   const n = parseInt(String(fd.get(key) ?? '').replace(/[^0-9-]/g, ''), 10)
   return Number.isFinite(n) ? n : fallback
 }
+// Textareas arrive with \r\n line endings; rubric lists are stored one item per \n line.
+function lines(fd: FormData, key: string) {
+  return str(fd, key).replace(/\r\n?/g, '\n')
+}
+// Pillar weight: 0.5 to 5 in steps of 0.5. Blank or unreadable means 1.
+function weight(fd: FormData) {
+  const n = parseFloat(str(fd, 'weight'))
+  return Number.isFinite(n) ? Math.min(5, Math.max(0.5, Math.round(n * 2) / 2)) : 1
+}
 
 async function fail(message: string): Promise<never> {
   const ref = (await headers()).get('referer')
@@ -250,12 +259,18 @@ export async function savePillar(fd: FormData) {
   const label = str(fd, 'label')
   const values = [
     str(fd, 'prompt'),
-    str(fd, 'strong_signals'),
-    str(fd, 'red_flags'),
+    lines(fd, 'strong_signals'),
+    lines(fd, 'red_flags'),
     int(fd, 'sort_order'),
     str(fd, 'partner_prompt'),
-    str(fd, 'partner_strong_signals'),
-    str(fd, 'partner_red_flags'),
+    lines(fd, 'partner_strong_signals'),
+    lines(fd, 'partner_red_flags'),
+    lines(fd, 'listen_for'),
+    lines(fd, 'weak_signals'),
+    lines(fd, 'partial_signals'),
+    str(fd, 'note'),
+    weight(fd),
+    lines(fd, 'partner_listen_for'),
   ]
   await admin(
     () =>
@@ -263,14 +278,18 @@ export async function savePillar(fd: FormData) {
         ? query(
             `update invest_rubric_pillars
              set label = $2, prompt = $3, strong_signals = $4, red_flags = $5, sort_order = $6,
-                 partner_prompt = $7, partner_strong_signals = $8, partner_red_flags = $9
+                 partner_prompt = $7, partner_strong_signals = $8, partner_red_flags = $9,
+                 listen_for = $10, weak_signals = $11, partial_signals = $12, note = $13, weight = $14,
+                 partner_listen_for = $15
              where id = $1`,
             [id, label, ...values],
           )
         : query(
             `insert into invest_rubric_pillars (event_id, key, label, prompt, strong_signals, red_flags, sort_order,
-                                                partner_prompt, partner_strong_signals, partner_red_flags)
-             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                                                partner_prompt, partner_strong_signals, partner_red_flags,
+                                                listen_for, weak_signals, partial_signals, note, weight,
+                                                partner_listen_for)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
             [eventId, slugify(label) || `pillar-${Date.now()}`, label, ...values],
           ),
     eventId,

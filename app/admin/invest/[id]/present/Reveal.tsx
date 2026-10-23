@@ -83,7 +83,7 @@ export default function Reveal({
                     </div>
                     {visible && (
                       <p className="mono mt-3 text-3xl text-white/90">
-                        Avg rubric <strong>{t.avg_score ?? '–'}/5</strong>
+                        Rubric score <strong>{t.avg_score ?? '–'}/5</strong>
                         {t.pillar_avgs.honesty != null && (
                           <>
                             {' '}
