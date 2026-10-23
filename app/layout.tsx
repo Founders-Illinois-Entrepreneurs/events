@@ -1,29 +1,31 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
+import type { Metadata } from 'next'
+import { Bebas_Neue, Montserrat } from 'next/font/google'
 import Navbar from '@/components/Navbar'
-import { Providers } from './providers'
 
-const inter = Inter({ subsets: ['latin'] })
+const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
+const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat' })
 
-export const metadata = {
-  title: 'Seed or Skip',
-  description: 'A startup investment simulation game where you decide to seed or skip',
+export const metadata: Metadata = {
+  title: { default: 'Founders · Illinois Entrepreneurs', template: '%s · Founders' },
+  description: 'Tools for Founders · Illinois Entrepreneurs events.',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="bg-[#0c1a14]">
-      <body className={`${inter.className} bg-[#0c1a14] text-[#e6f7f0] min-h-screen`}>
-        <Providers>
-          <Navbar />
-          <main className="container mx-auto px-4 py-8">
-            {children}
-          </main>
-        </Providers>
+    <html lang="en" className={`${bebas.variable} ${montserrat.variable}`}>
+      <body>
+        <Navbar />
+        <main className="container-page py-8 sm:py-12">{children}</main>
+        <footer className="container-page pb-10 pt-6 text-sm text-ink-3 no-print">
+          <span className="mono">Founders · Illinois Entrepreneurs</span>
+          {' · '}
+          <a className="underline" href="/admin">
+            Organizers
+          </a>
+          {' · '}
+          <a className="underline" href="https://github.com/amey-gupt/founders-tools">Source on GitHub</a>
+        </footer>
       </body>
     </html>
   )

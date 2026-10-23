@@ -1,39 +1,36 @@
 {
-  "name": "investment-game",
+  "name": "founders-tools",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build --no-lint",
-    "start": "next dev --turbopack",
-    "lint": "next lint",
-    "create-admin": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/create-admin.ts"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:db": "node scripts/test-db.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "db:seed": "node --env-file-if-exists=.env.local scripts/migrate.mjs --seed"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.8.0",
-    "@heroicons/react": "^2.2.0",
-    "@prisma/client": "^6.6.0",
-    "bcryptjs": "^3.0.2",
-    "mongoose": "^8.13.2",
-    "next": "15.3.1",
-    "next-auth": "^4.24.11",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "swr": "^2.3.3"
+    "next": "^16.4.3",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/bcryptjs": "^3.0.0",
-    "@types/mongoose": "^5.11.97",
-    "@types/node": "^20.17.30",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
-    "eslint": "^9",
-    "eslint-config-next": "15.3.1",
-    "prisma": "^6.6.0",
-    "tailwindcss": "^4",
-    "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "@electric-sql/pglite": "^0.5.11",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true
   }
 }

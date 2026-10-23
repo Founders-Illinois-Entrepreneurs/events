@@ -1,169 +1,186 @@
-# Investment Game
+# Founders Tools
 
-A platform for simulating startup investing in a team-based environment. Teams can invest in real historical AI startups and learn from their outcomes.
+Live activities for **Founders · Illinois Entrepreneurs** events, built to be reused semester after semester.
 
-## Features
+The first tool is the **R&D Pitch Evaluation** investment game:
 
-- Team-based registration and authentication
-- Real-time investment tracking
-- Admin dashboard for managing startups and outcomes
-- Leaderboard showing team rankings
-- Historical investment tracking
-- Real startup case studies
+1. The R&D teams pitch (e.g. at their midpoint presentations).
+2. Club members sit at investor tables of 1–3 people. Each table gets fake capital (default **$200,000**) and must invest **all of it** across the R&D teams.
+3. For every R&D team, the table writes **why** it invested that amount and **what would make it invest more**, and scores the team 1–5 on each pillar of the rubric.
+4. The R&D team with the most investment wins. Ties go to the higher average rubric score.
 
-## Prerequisites
+It's built to teach. Members learn what investors look for, because the rubric pillars are the lesson. R&D teams get specific, honest feedback to act on before their final pitch.
 
-- Node.js 18+ and npm
-- PostgreSQL database
+R&D teams can be on one of two **tracks**:
+- **Own venture**: building their own startup.
+- **Startup partner**: working with an existing startup as consultants, contractors or mentors.
 
-## Setup
+Both tracks are scored on the same pillars, so results stay comparable. Partner teams get each question reworded for their situation.
 
-1. Clone the repository:
+> Forked from [wgarrett707/investment-game](https://github.com/wgarrett707/investment-game) with the author's permission. Thank you!
+
+---
+
+## How an event runs
+
+There are no accounts. Members open the link, type their name and pick their table. Their browser remembers them. Organizers use one shared password.
+
+Every event moves through four phases, controlled from the organizer page:
+
+| Phase | What members can do |
+| --- | --- |
+| **Setup** | Join a table, read "What investors look for". |
+| **Open investing** | Fill in the table's portfolio together. It autosaves and syncs between teammates every few seconds. Then submit. |
+| **Closed** | Nothing. Tables that didn't submit don't count. |
+| **Revealed** | See results, rubric averages, and all feedback. |
+
+Rules the database enforces:
+
+- Tables have a size limit. Once a table submits, nobody can join, leave or edit it. An organizer can unlock it.
+- A portfolio can only be submitted if it invests exactly the full amount, and every R&D team has a reason, an "invest more if" answer, and a score on every pillar.
+- Tables can't see each other's picks until the reveal.
+- Feedback is anonymous unless the organizer turns on "show investor table names".
+
+Organizer extras:
+- A live tracker showing who joined and who has submitted.
+- A **Best Investor Thesis** star.
+- A full-screen **projector reveal**.
+- A **feedback report** (print/PDF or CSV) to hand to each R&D team.
+
+Since there are no accounts, someone could join twice from different browsers. The tracker lists every person by name, so remove anyone who doesn't belong.
+
+## Event-night checklist
+
+**Before the meeting**
+
+1. Go to **/admin** and sign in with the organizer password.
+2. Click **New investment game**. To reuse a past event's rubric and team names, pick it under "Copy setup from".
+3. Add the **R&D teams** with one-liners, and set each team's **track**.
+4. Add the **investor tables**. Paste one name per line, e.g. `Table 1 … Table 8`.
+5. Check the **rubric** wording.
+
+**At the meeting**
+
+1. Put the site's address on the projector. The home page opens the current event.
+2. Members type their name and join their table while the event is still in **Setup**.
+3. Run the pitches. Suggested format: **7 minutes of pitch and 5 of Q&A per team**, with a visible timer.
+4. Click **Open investing**. Give tables 10–15 minutes and watch the **live tracker**.
+5. Click **Close investing**. Optionally ★ the best-reasoned portfolio.
+6. Click **Reveal results**, open **Projector reveal**, and press → to reveal teams from last place to first.
+
+**After**
+
+1. Open the **Feedback report**, then print or save a PDF for each R&D team, or download the CSV.
+2. Archive the event. It stays in history.
+
+## Tech stack
+
+- [Next.js](https://nextjs.org) (App Router, TypeScript) + Tailwind CSS.
+  - Styled like the Founders site: Bebas Neue + Montserrat, Illini blue `#13294b` and orange `#ff9500`, official logos.
+- [Neon](https://neon.tech) serverless Postgres (free tier is plenty).
+- Hosted on [Vercel](https://vercel.com) (free tier).
+
+The whole site needs **two settings**: `DATABASE_URL` and `ADMIN_PASSWORD`.
+
+```
+app/
+  page.tsx                    Home: opens the current event
+  (tools)/invest/[slug]/      Member pages: join, invest, learn, results
+  admin/                      Organizer sign-in and events
+  admin/invest/[id]/          Run one event: phases, tracker, teams, rubric, reveal, feedback
+components/                   Shared UI (header, status chips, auto-refresh)
+lib/                          Database + access helpers, types
+db/migrations/                The whole database: tables and game rules (SQL)
+db/seed.sql                   Demo data for local development
+scripts/migrate.mjs           Applies migrations (npm run db:migrate)
+scripts/test-db.mjs           Database tests (no server needed)
+public/brand/                 Official Founders logos
+```
+
+## Setup (about 10 minutes)
+
+1. **Database.**
+   - Create a free [Neon](https://neon.tech) project.
+   - Click **Connect** and copy the **pooled** connection string. Its host contains `-pooler`.
+2. **Local settings.**
+   ```bash
+   npm install
+   cp .env.example .env.local   # paste DATABASE_URL, choose an ADMIN_PASSWORD
+   npm run db:migrate           # creates the tables (add `-- --seed` for a demo event)
+   npm run dev                  # http://localhost:3000, organizers sign in at /admin
+   ```
+3. **Deploy.**
+   - Import the repo in [Vercel](https://vercel.com).
+   - Add the same two environment variables, `DATABASE_URL` and `ADMIN_PASSWORD`.
+   - Deploy.
+
+Tip: create a Neon **branch** (e.g. `dev`) for local testing, so you never test against event-night data.
+
+To change the organizer password, update `ADMIN_PASSWORD` and redeploy. Everyone who was signed in as an organizer gets signed out.
+
+## Checking your work
+
 ```bash
-git clone <repository-url>
-cd investment-game
+npm run test:db     # database rules and game logic, runs in-process with PGlite
+npm run lint
+npm run typecheck
+npm run build
 ```
 
-2. Install dependencies:
+Changing the database:
+- Add a **new** numbered file in `db/migrations/` (e.g. `0004_add_polls.sql`), then run `npm run db:migrate`.
+- Never edit a migration that has already been applied.
+- Add tests to `scripts/test-db.mjs`.
+
+## Versions and history
+
+There are two kinds of "going back":
+
+**1. Reusing a past event's setup (most common).**
+- Events are never lost. Archived events stay in **Admin → Archive**, with their results and feedback.
+- To run a similar event, create a new one and choose **Copy setup from**.
+
+**2. Running an older version of the code.**
+- Each semester's event gets a git tag and a GitHub Release, e.g. `v2026-fall-midpoint`. See [CHANGELOG.md](CHANGELOG.md).
+- Vercel keeps every deployment at its own permanent URL. The release notes link the one used for that event.
+- To run an old version for real, give it its own database, since old code may not match a newer schema. A new Neon branch works well:
+  ```bash
+  git checkout v2026-fall-midpoint
+  # point DATABASE_URL at a fresh Neon branch
+  npm install && npm run db:migrate && npm run dev
+  ```
+- The default branch (`master`) is always the latest version.
+
+To cut a release after an event:
+
 ```bash
-npm install
+git tag -a v2026-fall-midpoint -m "Fall 2026 R&D midpoint"
+git push origin v2026-fall-midpoint
+gh release create v2026-fall-midpoint --generate-notes
 ```
 
-3. Set up environment variables:
-Create a `.env` file in the root directory with the following variables:
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/investment_game"
-NEXTAUTH_SECRET="your-secret-key"
-NEXTAUTH_URL="http://localhost:3000"
-ADMIN_EMAIL="admin@example.com"
-ADMIN_PASSWORD="your-admin-password"
-ADMIN_NAME="Admin User"
-```
+## Adding a new tool
 
-4. Set up the database:
-```bash
-npx prisma migrate dev
-```
+The repo is meant to grow (check-in, live polls, demo-day voting…). What's shared:
 
-5. Create the admin user:
-```bash
-npm run create-admin
-```
+- **Access**: `lib/auth.ts`
+  - `getMember()` / `getOrCreateMember()`: name-based, remembered per browser.
+  - `requireAdmin()`: organizer password.
+- **Events**: one `events` table for every tool. Add your tool's name to the `tool` check constraint in a new migration.
+- **Theme**: the classes in `app/globals.css` (`btn`, `card`, `chip`, `display`, `eyebrow`…) and the logos in `public/brand/`.
 
-6. Start the development server:
-```bash
-npm run dev
-```
+For a new tool:
+- Prefix its tables (`poll_*`).
+- Put its pages in `app/(tools)/<tool>/`.
+- Put its organizer pages in `app/admin/<tool>/`.
 
-## Usage
+## Security notes (this repo is public)
 
-### Admin
-
-1. Log in with the admin credentials
-2. Access the admin dashboard at `/admin`
-3. Create new startups with their details
-4. Manage investment rounds and outcomes
-5. View team performances
-
-### Teams
-
-1. Register a new team with team members
-2. Log in to access the team dashboard
-3. View available startups for investment
-4. Make investment decisions
-5. Track investment performance
-6. View the leaderboard
-
-## Game Flow
-
-1. Admin creates a new startup with details
-2. Teams are presented with the startup pitch
-3. Teams have a limited time to make investment decisions
-4. Admin reveals the startup outcome
-5. Teams' balances are updated based on their investments
-6. Process repeats for the next startup
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+- **Never commit** `.env.local` (it's gitignored). `DATABASE_URL` gives full database access, and `ADMIN_PASSWORD` gives organizer access.
+- Only server code talks to the database. Nothing secret is sent to the browser.
+- Member browsers hold a random token. Only its SHA-256 hash is stored.
+- Don't put real member data in `db/seed.sql` or anywhere in the repo.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-# Seed or Skip
-
-A modern investment simulation game where users can practice investment decisions in a risk-free environment.
-
-## Deployment Guide
-
-### Prerequisites
-
-- A Vercel account for deployment
-- A PostgreSQL database (recommended: Vercel Postgres, Supabase, or Railway)
-- Google OAuth credentials (if using Google authentication)
-
-### Environment Variables
-
-Copy the `.env.example` file and set up the following environment variables in your Vercel project:
-
-- `DATABASE_URL`: Your PostgreSQL connection string
-- `NEXTAUTH_SECRET`: A secure random string (generate using `openssl rand -base64 32`)
-- `NEXTAUTH_URL`: Your production URL (e.g., https://your-domain.vercel.app)
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: Initial admin user credentials
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: If using Google authentication
-
-### Deployment Steps
-
-1. **Database Setup**
-   - Create a new PostgreSQL database
-   - Update the `DATABASE_URL` in your environment variables
-   - Run database migrations:
-     ```bash
-     npx prisma db push
-     ```
-
-2. **Vercel Deployment**
-   - Push your code to GitHub
-   - Import your repository in Vercel
-   - Configure environment variables in Vercel's project settings
-   - Deploy your project
-
-3. **Post-Deployment**
-   - Verify that the application is running correctly
-   - Check that authentication is working
-   - Confirm database connections
-   - Test admin functionality
-
-### Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-### Database Management
-
-```bash
-# Generate Prisma Client
-npx prisma generate
-
-# Push schema changes to database
-npx prisma db push
-
-# Open Prisma Studio
-npx prisma studio
-```
+[MIT](LICENSE). Original project by [wgarrett707](https://github.com/wgarrett707), used with permission.

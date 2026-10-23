@@ -1,152 +1,91 @@
-import { NextAuthOptions } from 'next-auth'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import GoogleProvider from 'next-auth/providers/google'
-import { prisma } from '@/lib/prisma'
-import { Adapter } from 'next-auth/adapters'
-import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { one, query } from '@/lib/db'
+import type { Member } from '@/lib/types'
 
-// Define custom types for the user and session
-declare module 'next-auth' {
-  interface User {
-    id: string
-    role: string
-    teamId?: string | null
-  }
-  interface Session {
-    user: User & {
-      id: string
-      role: string
-      teamId?: string | null
+// Two simple kinds of access, no accounts:
+//   * Members: type a name when joining; the browser keeps a random token.
+//   * Organizers: one shared ADMIN_PASSWORD.
+
+const MEMBER_COOKIE = 'ft_member'
+const ADMIN_COOKIE = 'ft_admin'
+const MONTH = 60 * 60 * 24 * 30
+
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+
+const cookieOptions = (maxAge: number) => ({
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+  maxAge,
+})
+
+// ---- Members ---------------------------------------------------------------
+
+export async function getMember(): Promise<Member | null> {
+  const token = (await cookies()).get(MEMBER_COOKIE)?.value
+  if (!token) return null
+  return one<Member>('select id, name from members where token_hash = $1', [sha256(token)])
+}
+
+// Returns the current member, creating one (and setting the cookie) if needed.
+// Only call from Server Actions / Route Handlers, where cookies can be set.
+export async function getOrCreateMember(name: string): Promise<Member> {
+  const clean = name.trim().replace(/\s+/g, ' ').slice(0, 60)
+  const existing = await getMember()
+  if (existing) {
+    if (clean && clean !== existing.name) {
+      await query('update members set name = $2 where id = $1', [existing.id, clean])
+      return { ...existing, name: clean }
     }
+    return existing
   }
+  if (!clean) throw new Error('Please enter your name.')
+  const token = randomBytes(32).toString('base64url')
+  const id = randomBytes(12).toString('hex')
+  await query('insert into members (id, name, token_hash) values ($1, $2, $3)', [id, clean, sha256(token)])
+  ;(await cookies()).set(MEMBER_COOKIE, token, cookieOptions(MONTH))
+  return { id, name: clean }
 }
 
-declare module 'next-auth/jwt' {
-  interface JWT {
-    id: string
-    role: string
-    teamId?: string | null
-  }
+// ---- Organizers ------------------------------------------------------------
+
+function adminToken() {
+  const pw = process.env.ADMIN_PASSWORD
+  if (!pw) return null
+  return sha256(`founders-tools-admin:${pw}`)
 }
 
-// Ensure we have a secret
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error('Please provide process.env.NEXTAUTH_SECRET')
+function same(a: string, b: string) {
+  const x = Buffer.from(a)
+  const y = Buffer.from(b)
+  return x.length === y.length && timingSafeEqual(x, y)
 }
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as Adapter,
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    CredentialsProvider({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
-      },
-      async authorize(credentials) {
-        try {
-          if (!credentials?.email) {
-            console.error('Missing email')
-            return null
-          }
+export function adminConfigured() {
+  return !!process.env.ADMIN_PASSWORD
+}
 
-          console.log('Attempting to find user:', credentials.email)
-          const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email
-            }
-          })
+export async function isAdmin() {
+  const expected = adminToken()
+  const got = (await cookies()).get(ADMIN_COOKIE)?.value
+  return !!expected && !!got && same(got, expected)
+}
 
-          if (!user) {
-            console.error('User not found:', credentials.email)
-            throw new Error('Invalid credentials')
-          }
+export async function requireAdmin() {
+  if (!(await isAdmin())) redirect('/admin/login')
+}
 
-          // For admin users, skip password verification
-          if (user.role === 'ADMIN') {
-            console.log('Admin login successful:', credentials.email)
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-              teamId: user.teamId,
-            }
-          }
+// Returns true when the password is right (and sets the organizer cookie).
+export async function adminSignIn(password: string) {
+  const expected = adminToken()
+  if (!expected || !same(sha256(`founders-tools-admin:${password}`), expected)) return false
+  ;(await cookies()).set(ADMIN_COOKIE, expected, cookieOptions(60 * 60 * 24 * 7))
+  return true
+}
 
-          // For non-admin users, verify password
-          if (!user.password) {
-            console.error('User has no password:', credentials.email)
-            throw new Error('Invalid credentials')
-          }
-
-          if (!credentials.password) {
-            console.error('Password required for non-admin users')
-            throw new Error('Password required')
-          }
-
-          console.log('Comparing passwords for user:', credentials.email)
-          const isCorrectPassword = await bcrypt.compare(
-            credentials.password,
-            user.password
-          )
-
-          if (!isCorrectPassword) {
-            console.error('Invalid password for user:', credentials.email)
-            throw new Error('Invalid credentials')
-          }
-
-          console.log('Login successful for user:', credentials.email)
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            teamId: user.teamId,
-          }
-        } catch (error) {
-          console.error('Auth error:', error)
-          throw error
-        }
-      }
-    })
-  ],
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: '/login',
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role,
-          teamId: user.teamId,
-        }
-      }
-      return token
-    },
-    async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-          teamId: token.teamId,
-        }
-      }
-    }
-  },
-  debug: true // Enable debug mode to see more detailed errors
-} 
+export async function adminSignOut() {
+  ;(await cookies()).delete(ADMIN_COOKIE)
+}

@@ -1,55 +1,42 @@
-'use client'
-
+import Image from 'next/image'
 import Link from 'next/link'
-import { signOut, useSession } from 'next-auth/react'
+import { getMember, isAdmin } from '@/lib/auth'
+import { signOutAdmin } from '@/app/admin/actions'
 
-export default function Navbar() {
-  const { data: session } = useSession()
+// Same header on every page. Event pages carry the event-specific titles.
+export default async function Navbar() {
+  const [member, admin] = await Promise.all([getMember(), isAdmin()])
 
   return (
-    <nav className="bg-[#0a2618] shadow-lg border-b border-[#10b981]/20">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <Link href="/" className="flex items-center">
-              <span className="text-xl font-bold text-[#34d399]">Seed or Skip</span>
-            </Link>
-          </div>
+    <header className="border-b-2 border-ink bg-paper no-print">
+      <div className="container-page flex h-16 items-center justify-between gap-4">
+        <Link href="/" className="flex items-center no-underline" aria-label="Home">
+          <Image
+            src="/brand/founders-logo.png"
+            alt="Founders · Illinois Entrepreneurs"
+            width={535}
+            height={141}
+            priority
+            className="h-[30px] w-auto sm:h-[38px]"
+          />
+        </Link>
 
-          <div className="flex items-center">
-            {session ? (
-              <>
-                {session.user.role === 'ADMIN' && (
-                  <Link href="/admin" className="px-3 py-2 rounded-md text-sm font-medium text-[#34d399] hover:text-white hover:bg-[#10b981]/20 transition-colors">
-                    Admin Dashboard
-                  </Link>
-                )}
-                <Link href="/dashboard" className="px-3 py-2 rounded-md text-sm font-medium text-[#34d399] hover:text-white hover:bg-[#10b981]/20 transition-colors">
-                  Dashboard
-                </Link>
-                <Link href="/leaderboard" className="px-3 py-2 rounded-md text-sm font-medium text-[#34d399] hover:text-white hover:bg-[#10b981]/20 transition-colors">
-                  Leaderboard
-                </Link>
-                <button
-                  onClick={() => signOut()}
-                  className="ml-4 px-3 py-2 rounded-md text-sm font-medium text-[#34d399] hover:text-white hover:bg-[#10b981]/20 transition-colors"
-                >
-                  Sign Out
+        <nav className="flex items-center gap-3">
+          {member && <span className="hidden text-sm text-ink-2 sm:inline">Hi, {member.name}</span>}
+          {admin && (
+            <>
+              <Link href="/admin" className="btn btn-ghost btn-sm">
+                Organizer
+              </Link>
+              <form action={signOutAdmin}>
+                <button className="btn btn-primary btn-sm" type="submit">
+                  Sign out
                 </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="px-3 py-2 rounded-md text-sm font-medium text-[#34d399] hover:text-white hover:bg-[#10b981]/20 transition-colors">
-                  Login
-                </Link>
-                <Link href="/register" className="ml-4 px-3 py-2 rounded-md text-sm font-medium text-[#34d399] hover:text-white hover:bg-[#10b981]/20 transition-colors">
-                  Register
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
+              </form>
+            </>
+          )}
+        </nav>
       </div>
-    </nav>
+    </header>
   )
-} 
+}

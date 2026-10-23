@@ -1,44 +1,28 @@
+import Image from 'next/image'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { getCurrentEvents } from '@/lib/invest'
 
-export default function Home() {
+// The front page is the current event. With nothing running, a short note.
+export default async function Home() {
+  const [current] = await getCurrentEvents()
+  if (current) redirect(`/invest/${current.slug}`)
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 text-[#34d399]">Welcome to Seed or Skip</h1>
-        <p className="text-xl mb-8 text-[#a7f3d0]">Experience the thrill of startup investing in a simulated environment</p>
-        
-        <div className="space-y-4">
-          <Link 
-            href="/register" 
-            className="inline-block bg-[#10b981] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#059669] transition-colors"
-          >
-            Get Started
-          </Link>
-          <div className="mt-4">
-            <Link 
-              href="/login" 
-              className="text-[#34d399] hover:text-[#a7f3d0]"
-            >
-              Already have an account? Login
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
-        <div className="p-6 bg-[#0a2618]/80 backdrop-blur-sm rounded-lg shadow-md border border-[#10b981]/20">
-          <h2 className="text-xl font-semibold mb-2 text-[#34d399]">Learn Investment</h2>
-          <p className="text-[#a7f3d0]">Understand how startup investing works through hands-on experience</p>
-        </div>
-        <div className="p-6 bg-[#0a2618]/80 backdrop-blur-sm rounded-lg shadow-md border border-[#10b981]/20">
-          <h2 className="text-xl font-semibold mb-2 text-[#34d399]">Compete with Teams</h2>
-          <p className="text-[#a7f3d0]">Join a team and compete against others to make the best investments</p>
-        </div>
-        <div className="p-6 bg-[#0a2618]/80 backdrop-blur-sm rounded-lg shadow-md border border-[#10b981]/20">
-          <h2 className="text-xl font-semibold mb-2 text-[#34d399]">Real Startup Cases</h2>
-          <p className="text-[#a7f3d0]">Invest in real historical AI startups and learn from their outcomes</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-xl py-16 text-center">
+      <Image
+        src="/brand/founders-rd.png"
+        alt="Founders R&D"
+        width={741}
+        height={1000}
+        priority
+        className="mx-auto h-28 w-auto"
+      />
+      <h1 className="display mt-6 text-6xl">No event right now</h1>
+      <p className="mt-3 text-ink-2">Check back at the next Founders meeting.</p>
+      <Link href="/admin" className="mt-8 inline-block text-sm text-ink-3 underline">
+        Organizer sign-in
+      </Link>
     </div>
   )
 }
