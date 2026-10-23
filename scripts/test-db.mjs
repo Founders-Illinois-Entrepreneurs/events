@@ -7,8 +7,9 @@
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 const db = new PGlite()
 
 for (const f of readdirSync(join(root, 'db/migrations')).filter((f) => f.endsWith('.sql')).sort()) {

@@ -6,6 +6,7 @@
 import pg from 'pg'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const url = process.env.DATABASE_URL
 if (!url) {
@@ -13,7 +14,7 @@ if (!url) {
   process.exit(1)
 }
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 const client = new pg.Client({ connectionString: url })
 await client.connect()
 
