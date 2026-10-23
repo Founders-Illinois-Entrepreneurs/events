@@ -26,8 +26,8 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
           </Link>
           <h1 className="display mt-2 text-5xl">Feedback report</h1>
           <p className="text-sm text-ink-2">
-            Only submitted portfolios are included. Investor names are{' '}
-            {r.event.reveal_names ? 'shown' : 'hidden'} (change this in event settings).
+            Only submitted portfolios are included. Table names are shown here for organizers; on the members&apos;
+            results page they are {r.event.reveal_names ? 'shown' : 'hidden'} (change this in event settings).
           </p>
         </div>
         <div className="flex gap-2">

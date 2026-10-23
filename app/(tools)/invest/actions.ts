@@ -1,9 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getMember, getOrCreateMember } from '@/lib/auth'
-import { errorMessage, one, query } from '@/lib/db'
-import { getPortfolio } from '@/lib/invest'
+import { getMember, joinTableAs } from '@/lib/auth'
+import { errorMessage, query } from '@/lib/db'
 
 // Every action re-checks who this browser belongs to; the SQL functions enforce the game rules.
 
@@ -22,11 +21,10 @@ async function run(fn: (memberId: string) => Promise<unknown>, slug?: string): P
   }
 }
 
-// First visit: remembers this browser under the given name, then joins the team.
-export async function joinTeam(teamId: string, slug: string, name: string): Promise<ActionResult> {
+// Signs this phone in for a table (first visit: remembers the phone under the table's names).
+export async function joinTeam(teamId: string, slug: string, names: string): Promise<ActionResult> {
   try {
-    const me = await getOrCreateMember(name)
-    await query('select invest_join_team($1, $2)', [me.id, teamId])
+    await joinTableAs(String(names ?? ''), String(teamId))
     return {}
   } catch (e) {
     return { error: errorMessage(e) }
@@ -62,17 +60,7 @@ export async function saveAllocation(
 }
 
 export async function saveScore(teamId: string, presenterId: string, pillarId: string, score: number) {
-  return run((m) => query('select invest_save_score($1, $2, $3, $4, $5)', [m, teamId, presenterId, pillarId, score]))
-}
-
-// Teammate sync: the latest saved portfolio for a team you're on.
-export async function fetchPortfolio(teamId: string) {
-  const me = await getMember()
-  if (!me) return null
-  const member = await one('select 1 from invest_team_members where investor_team_id = $1 and user_id = $2', [
-    teamId,
-    me.id,
-  ])
-  if (!member) return null
-  return getPortfolio(teamId)
+  const s = Math.round(Number(score))
+  if (!(s >= 1 && s <= 5)) return { error: 'Scores go from 1 to 5.' }
+  return run((m) => query('select invest_save_score($1, $2, $3, $4, $5)', [m, teamId, presenterId, pillarId, s]))
 }

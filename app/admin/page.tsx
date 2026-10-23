@@ -54,8 +54,9 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
             <input id="slug" name="slug" className="input mono" placeholder="rd-midpoint-fa26" />
           </div>
           <div>
-            <label className="field-label" htmlFor="cap">Capital per investor team ($)</label>
-            <input id="cap" name="starting_capital" className="input mono" defaultValue="200000" inputMode="numeric" />
+            <label className="field-label" htmlFor="cap">Capital per table ($)</label>
+            <input id="cap" name="starting_capital" className="input mono" placeholder="200000" inputMode="numeric" />
+            <p className="mt-1 text-xs text-ink-3">Leave blank for $200,000 (or the copied event&apos;s amount).</p>
           </div>
           <div>
             <label className="field-label" htmlFor="clone">Start from</label>

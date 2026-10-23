@@ -2,22 +2,31 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { money } from '@/lib/format'
+import { money, shortMoney } from '@/lib/format'
 import { pillarText, TRACK_LABEL } from '@/lib/types'
-import type { Allocation, ClubEvent, InvestorTeam, Pillar, PresenterTeam, RubricScore, Teammate } from '@/lib/types'
-import { fetchPortfolio, saveAllocation as saveAllocationAction, saveScore, submitPortfolio } from '../actions'
+import type { Allocation, ClubEvent, InvestorTeam, Pillar, PresenterTeam, RubricScore } from '@/lib/types'
+import { saveAllocation as saveAllocationAction, saveScore, submitPortfolio } from '../actions'
 
-type Draft = { amount: number; rationale: string; invest_more_if: string; updated_by: string | null }
+// One phone per table, so there is no syncing between devices: this screen is
+// the only editor of the table's portfolio. Edits autosave in the background.
+
+type Draft = { amount: number; rationale: string; invest_more_if: string }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 const SCORE_LABELS = ['', 'Weak', 'Below avg', 'OK', 'Strong', 'Excellent']
-const SYNC_SECONDS = 3
+const EMPTY: Draft = { amount: 0, rationale: '', invest_more_if: '' }
+
+// "50,000" / "$50000" / "50k" / "0.2m" -> whole dollars.
+function parseAmount(raw: string) {
+  const s = raw.toLowerCase().replace(/[\s$,]/g, '')
+  const mult = s.endsWith('k') ? 1_000 : s.endsWith('m') ? 1_000_000 : 1
+  const n = parseFloat(s.replace(/[km]$/, ''))
+  return Number.isFinite(n) ? Math.max(0, Math.round(n * mult)) : 0
+}
 
 export default function InvestForm({
   event,
   team,
-  me,
-  teammates,
   presenters,
   pillars,
   initialAllocations,
@@ -25,8 +34,6 @@ export default function InvestForm({
 }: {
   event: ClubEvent
   team: InvestorTeam
-  me: string
-  teammates: Teammate[]
   presenters: PresenterTeam[]
   pillars: Pillar[]
   initialAllocations: Allocation[]
@@ -39,12 +46,7 @@ export default function InvestForm({
     const d: Record<string, Draft> = {}
     for (const p of presenters) {
       const a = initialAllocations.find((x) => x.presenter_team_id === p.id)
-      d[p.id] = {
-        amount: a?.amount ?? 0,
-        rationale: a?.rationale ?? '',
-        invest_more_if: a?.invest_more_if ?? '',
-        updated_by: a?.updated_by ?? null,
-      }
+      d[p.id] = { amount: a?.amount ?? 0, rationale: a?.rationale ?? '', invest_more_if: a?.invest_more_if ?? '' }
     }
     return d
   })
@@ -54,61 +56,97 @@ export default function InvestForm({
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [error, setError] = useState<string>()
   const [reviewing, setReviewing] = useState(false)
+  // Raw text of the amount box being typed in (formatted with commas once you leave it).
+  const [amountText, setAmountText] = useState<{ id: string; text: string } | null>(null)
   const [submitting, startSubmit] = useTransition()
 
   // Latest drafts for the debounced saver, unsaved cards, and in-flight saves to flush before submit.
   const draftsRef = useRef(drafts)
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const inflight = useRef(new Set<Promise<unknown>>())
-  // When we last saw each card change, so teammate edits are applied once.
-  const seenAt = useRef<Record<string, string>>(
-    Object.fromEntries(initialAllocations.map((a) => [a.presenter_team_id, a.updated_at])),
-  )
+  // Saves that failed (e.g. phone briefly offline). Retried automatically.
+  const failedCards = useRef(new Set<string>())
+  const failedScores = useRef(new Map<string, number>())
 
-  const nameOf = useCallback(
-    (id: string | null) => {
-      const t = teammates.find((x) => x.id === id)
-      return t ? t.name : 'A teammate'
-    },
-    [teammates],
-  )
-
-  const track = useCallback((p: Promise<{ error?: string }>) => {
+  const track = useCallback((p: Promise<{ error?: string }>, onDone: (ok: boolean) => void) => {
     inflight.current.add(p)
     setSaveState('saving')
     p.then((res) => {
-      if (res.error) {
-        setSaveState('error')
-        setError(`Couldn't save: ${res.error}`)
-      }
+      onDone(!res.error)
+      if (res.error) setError(`Couldn't save: ${res.error}`)
     })
       .catch(() => {
-        setSaveState('error')
-        setError("Couldn't save. Check your connection.")
+        onDone(false)
+        setError("Couldn't save. Check your connection; we'll keep retrying.")
       })
       .finally(() => {
         inflight.current.delete(p)
-        if (inflight.current.size === 0) setSaveState((s) => (s === 'error' ? s : 'saved'))
+        if (inflight.current.size === 0) {
+          const failing = failedCards.current.size + failedScores.current.size > 0
+          setSaveState(failing ? 'error' : 'saved')
+          if (!failing) setError(undefined)
+        }
       })
     return p
   }, [])
 
   const saveAllocation = useCallback(
-    (presenterId: string) => {
-      const d = draftsRef.current[presenterId]
-      return track(
-        saveAllocationAction(team.id, presenterId, {
-          amount: d.amount,
-          rationale: d.rationale,
-          invest_more_if: d.invest_more_if,
-        }),
-      )
+    (presenterId: string) =>
+      track(saveAllocationAction(team.id, presenterId, draftsRef.current[presenterId] ?? EMPTY), (ok) => {
+        if (ok) failedCards.current.delete(presenterId)
+        else failedCards.current.add(presenterId)
+      }),
+    [team.id, track],
+  )
+
+  const sendScore = useCallback(
+    (presenterId: string, pillarId: string, score: number) => {
+      const key = `${presenterId}:${pillarId}`
+      return track(saveScore(team.id, presenterId, pillarId, score), (ok) => {
+        if (ok) {
+          if (failedScores.current.get(key) === score) failedScores.current.delete(key)
+        } else failedScores.current.set(key, score)
+      })
     },
     [team.id, track],
   )
 
+  const retryFailed = useCallback(() => {
+    for (const id of [...failedCards.current]) saveAllocation(id)
+    for (const [key, score] of [...failedScores.current]) {
+      const [presenterId, pillarId] = key.split(':')
+      sendScore(presenterId, pillarId, score)
+    }
+  }, [saveAllocation, sendScore])
+
+  // Keep the page's auto-refresh away while anything is unsaved, so nothing typed can be lost.
+  useEffect(() => {
+    const w = window as unknown as { __ftHoldRefresh?: boolean }
+    const id = setInterval(() => {
+      w.__ftHoldRefresh =
+        Object.keys(timers.current).length + inflight.current.size + failedCards.current.size + failedScores.current.size > 0
+    }, 250)
+    return () => {
+      clearInterval(id)
+      w.__ftHoldRefresh = false
+    }
+  }, [])
+
+  // Retry failed saves when the connection comes back, and every 5 seconds while any are pending.
+  useEffect(() => {
+    const tick = () => {
+      if (inflight.current.size === 0 && failedCards.current.size + failedScores.current.size > 0) retryFailed()
+    }
+    window.addEventListener('online', tick)
+    const id = setInterval(tick, 5000)
+    return () => {
+      window.removeEventListener('online', tick)
+      clearInterval(id)
+    }
+  }, [retryFailed])
+
   function update(presenterId: string, patch: Partial<Draft>) {
-    const next = { ...draftsRef.current, [presenterId]: { ...draftsRef.current[presenterId], ...patch, updated_by: me } }
+    const next = { ...draftsRef.current, [presenterId]: { ...(draftsRef.current[presenterId] ?? EMPTY), ...patch } }
     draftsRef.current = next
     setDrafts(next)
     setError(undefined)
@@ -121,7 +159,8 @@ export default function InvestForm({
 
   function setScore(presenterId: string, pillarId: string, score: number) {
     setScores((prev) => ({ ...prev, [`${presenterId}:${pillarId}`]: score }))
-    track(saveScore(team.id, presenterId, pillarId, score))
+    failedScores.current.delete(`${presenterId}:${pillarId}`)
+    sendScore(presenterId, pillarId, score)
   }
 
   async function flush() {
@@ -131,56 +170,11 @@ export default function InvestForm({
       saveAllocation(id)
     }
     await Promise.allSettled([...inflight.current])
+    if (failedCards.current.size + failedScores.current.size > 0) {
+      retryFailed()
+      await Promise.allSettled([...inflight.current])
+    }
   }
-
-  // Pick up teammates' edits every few seconds. Our own edits are never overwritten.
-  useEffect(() => {
-    let stopped = false
-    const sync = async () => {
-      if (document.visibilityState !== 'visible' || inflight.current.size) return
-      const latest = await fetchPortfolio(team.id).catch(() => null)
-      if (stopped || !latest) return
-      if (latest.submittedAt) {
-        router.refresh()
-        return
-      }
-      let next = draftsRef.current
-      for (const a of latest.allocations) {
-        const id = a.presenter_team_id
-        if (!next[id] || a.updated_by === me || timers.current[id]) continue
-        if (seenAt.current[id] && seenAt.current[id] >= a.updated_at) continue
-        seenAt.current[id] = a.updated_at
-        next = {
-          ...next,
-          [id]: { amount: a.amount, rationale: a.rationale, invest_more_if: a.invest_more_if, updated_by: a.updated_by },
-        }
-      }
-      if (next !== draftsRef.current) {
-        draftsRef.current = next
-        setDrafts(next)
-      }
-      const theirs = latest.scores.filter((s) => s.updated_by !== me)
-      if (theirs.length) {
-        setScores((prev) => {
-          let changed = false
-          const out = { ...prev }
-          for (const s of theirs) {
-            const k = `${s.presenter_team_id}:${s.pillar_id}`
-            if (out[k] !== s.score) {
-              out[k] = s.score
-              changed = true
-            }
-          }
-          return changed ? out : prev
-        })
-      }
-    }
-    const id = setInterval(sync, SYNC_SECONDS * 1000)
-    return () => {
-      stopped = true
-      clearInterval(id)
-    }
-  }, [team.id, me, router])
 
   // Warn before closing the tab with unsaved edits.
   useEffect(() => {
@@ -191,24 +185,30 @@ export default function InvestForm({
     return () => window.removeEventListener('beforeunload', onUnload)
   }, [])
 
-  const total = presenters.reduce((sum, p) => sum + (drafts[p.id]?.amount || 0), 0)
+  const draftOf = (id: string) => drafts[id] ?? EMPTY
+  const total = presenters.reduce((sum, p) => sum + draftOf(p.id).amount, 0)
   const remaining = capital - total
 
-  const missing = presenters.flatMap((p) => {
-    const d = drafts[p.id]
-    const items: string[] = []
-    if (!d.rationale.trim()) items.push(`${p.name}: why you invested`)
-    if (!d.invest_more_if.trim()) items.push(`${p.name}: what would make you invest more`)
+  // How many fields each team card still needs.
+  const todo = presenters.map((p) => {
+    const d = draftOf(p.id)
     const unscored = pillars.filter((pl) => !scores[`${p.id}:${pl.id}`]).length
-    if (unscored) items.push(`${p.name}: ${unscored} rubric score${unscored > 1 ? 's' : ''}`)
-    return items
+    return { p, left: (d.rationale.trim() ? 0 : 1) + (d.invest_more_if.trim() ? 0 : 1) + unscored }
   })
-  const ready = remaining === 0 && missing.length === 0
+  const fieldsLeft = todo.reduce((s, t) => s + t.left, 0)
+  const ready = remaining === 0 && fieldsLeft === 0
+
+  const jump = (id: string) => document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   function submit() {
     startSubmit(async () => {
       setError(undefined)
       await flush()
+      if (failedCards.current.size + failedScores.current.size > 0) {
+        setError("Some answers haven't saved yet. Check your connection and try again.")
+        setReviewing(false)
+        return
+      }
       const res = await submitPortfolio(team.id, event.slug)
       if (res.error) {
         setError(res.error)
@@ -220,34 +220,51 @@ export default function InvestForm({
   }
 
   return (
-    <div className="space-y-6 pb-28">
-      <div className="alert alert-info">
-        Split <strong>all {money(capital)}</strong> across the teams. For each team, explain your decision and score
-        it on every pillar. Edits save automatically and your teammates see them live.
+    <div className="space-y-6 pb-32">
+      <div className="alert alert-info space-y-1">
+        <p>
+          Split <strong>all {money(capital)}</strong> across the teams. For each team: an amount, why, what would make
+          you invest more, and a 1–5 score on each pillar.
+        </p>
+        <p className="text-sm">
+          Tip: go one team at a time and talk it through as a table. Settle the dollar split together at the end.
+        </p>
       </div>
 
+      {/* Team shortcuts with progress */}
+      <nav className="grid grid-cols-3 gap-2" aria-label="Teams">
+        {todo.map(({ p, left }) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => jump(p.id)}
+            className={`card flex min-w-0 flex-col items-start gap-0.5 p-2 text-left sm:p-3 ${left === 0 ? 'bg-[var(--green-soft)]' : ''}`}
+          >
+            <span className="w-full truncate text-sm font-bold">{p.name}</span>
+            <span className={`mono text-xs ${left === 0 ? 'text-green' : 'text-ink-3'}`}>{left === 0 ? '✓ done' : `${left} left`}</span>
+            <span className="mono text-xs text-ink-2">{shortMoney(draftOf(p.id).amount)}</span>
+          </button>
+        ))}
+      </nav>
+
       {presenters.map((p, i) => {
-        const d = drafts[p.id]
+        const d = draftOf(p.id)
         const pct = capital ? Math.round((d.amount / capital) * 100) : 0
         return (
-          <section key={p.id} className="card card-shadow space-y-5">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="eyebrow">Team {i + 1}</p>
-                  <span className={`chip ${p.track === 'partner' ? 'chip-blue' : 'chip-muted'}`}>{TRACK_LABEL[p.track]}</span>
-                </div>
-                <h2 className="display text-4xl">{p.name}</h2>
-                {p.one_liner && <p className="text-ink-2">{p.one_liner}</p>}
-                {p.track === 'partner' && (
-                  <p className="mt-1 text-sm text-ink-2">
-                    This team works with an existing startup. Back the <strong>team and the value of their work</strong>,
-                    not the partner company itself.
-                  </p>
-                )}
+          <section key={p.id} id={`card-${p.id}`} className="card card-shadow scroll-mt-4 space-y-5">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="eyebrow">Team {i + 1}</p>
+                <span className={`chip ${p.track === 'partner' ? 'chip-blue' : 'chip-muted'}`}>{TRACK_LABEL[p.track]}</span>
               </div>
-              {d.updated_by && d.updated_by !== me && (
-                <span className="chip chip-muted">Last edited by {nameOf(d.updated_by)}</span>
+              <h2 className="display text-4xl">{p.name}</h2>
+              {p.one_liner && <p className="text-ink-2">{p.one_liner}</p>}
+              {p.track === 'partner' && (
+                <p className="mt-2 rounded-[6px] border-2 border-blue-2 bg-blue-soft p-3 text-sm text-blue">
+                  <strong>Startup partner team.</strong> They work with an existing startup. Judge{' '}
+                  <strong>this team and the value of their work</strong>, not the partner company. The questions below
+                  are reworded for that.
+                </p>
               )}
             </div>
 
@@ -271,24 +288,30 @@ export default function InvestForm({
                 <input
                   id={`amt-${p.id}`}
                   className="input w-40 text-right mono"
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  min={0}
-                  max={capital}
-                  step={1000}
-                  value={d.amount}
+                  autoComplete="off"
+                  placeholder="0"
+                  value={amountText?.id === p.id ? amountText.text : d.amount ? d.amount.toLocaleString('en-US') : ''}
+                  onFocus={() => setAmountText({ id: p.id, text: d.amount ? String(d.amount) : '' })}
+                  onBlur={() => setAmountText(null)}
                   onChange={(e) => {
-                    const n = Math.max(0, Math.min(capital, Math.floor(Number(e.target.value) || 0)))
-                    update(p.id, { amount: n })
+                    setAmountText({ id: p.id, text: e.target.value })
+                    update(p.id, { amount: Math.min(capital, parseAmount(e.target.value)) })
                   }}
                 />
                 {remaining > 0 && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => update(p.id, { amount: d.amount + remaining })}>
+                    + rest
+                  </button>
+                )}
+                {remaining < 0 && d.amount > 0 && (
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
-                    onClick={() => update(p.id, { amount: d.amount + remaining })}
+                    onClick={() => update(p.id, { amount: Math.max(0, d.amount + remaining) })}
                   >
-                    + rest
+                    Fit total
                   </button>
                 )}
               </div>
@@ -322,7 +345,7 @@ export default function InvestForm({
             </div>
 
             <div>
-              <p className="field-label">Rubric · 1 weak → 5 excellent</p>
+              <p className="field-label">Rubric · 1 weak → 5 excellent · tap ▸ for what to look for</p>
               <div className="divide-y divide-line rounded-[6px] border-2 border-ink">
                 {pillars.map((pl) => {
                   const v = scores[`${p.id}:${pl.id}`]
@@ -371,43 +394,55 @@ export default function InvestForm({
       <div className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t-2 border-ink bg-paper">
         <div className="container-page flex items-center justify-between gap-3 pt-2 sm:py-3">
           <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
-            <span className="field-label mb-0">Left</span>
-            <span className={`num text-3xl sm:text-4xl ${remaining === 0 ? 'text-green' : remaining < 0 ? 'text-red' : ''}`}>
-              {money(remaining)}
+            <span className="field-label mb-0">{remaining < 0 ? 'Over' : 'Left'}</span>
+            <span className={`num text-2xl sm:text-4xl ${remaining === 0 ? 'text-green' : remaining < 0 ? 'text-red' : ''}`}>
+              {money(Math.abs(remaining))}
             </span>
-            <span className="mono hidden text-xs text-ink-3 sm:inline">
-              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'All changes saved' : saveState === 'error' ? 'Save failed' : ''}
+            <span
+              className={`mono whitespace-nowrap text-xs ${saveState === 'error' ? 'font-bold text-red' : 'text-ink-3'}`}
+              aria-live="polite"
+            >
+              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : saveState === 'error' ? '⚠ Not saved' : ''}
             </span>
           </div>
-          <button className="btn btn-orange sm:min-h-[54px] sm:px-[26px] sm:text-base" disabled={!ready || submitting} onClick={() => setReviewing(true)}>
+          <button
+            className="btn btn-orange sm:min-h-[54px] sm:px-[26px] sm:text-base"
+            disabled={!ready || submitting}
+            onClick={() => setReviewing(true)}
+          >
             Review &amp; submit
           </button>
         </div>
-        {!ready && (
-          <p className="container-page truncate pt-1 text-xs text-ink-2 sm:pb-3 sm:whitespace-normal">
-            {remaining > 0
-              ? `Invest ${money(remaining)} more. `
-              : remaining < 0
-                ? `You're ${money(-remaining)} over. `
-                : ''}
-            {missing.length > 0 && `Still needed: ${missing.slice(0, 3).join('; ')}${missing.length > 3 ? ` and ${missing.length - 3} more` : ''}.`}
-          </p>
+        {error ? (
+          <p className="container-page pt-1 text-xs font-semibold text-red sm:pb-3">{error}</p>
+        ) : (
+          !ready && (
+            <p className="container-page flex flex-wrap gap-x-3 gap-y-1 pt-1 text-xs text-ink-2 sm:pb-3">
+              {remaining > 0 && <span>Invest {money(remaining)} more.</span>}
+              {remaining < 0 && <span className="font-semibold text-red">{money(-remaining)} over. Lower an amount.</span>}
+              {todo
+                .filter((t) => t.left > 0)
+                .map((t) => (
+                  <button key={t.p.id} type="button" className="min-h-[32px] underline" onClick={() => jump(t.p.id)}>
+                    {t.p.name}: {t.left} left
+                  </button>
+                ))}
+            </p>
+          )
         )}
       </div>
-
-      {error && <p className="alert alert-error">{error}</p>}
 
       {reviewing && (
         <div className="fixed inset-0 z-30 grid place-items-center bg-ink/60 p-4" role="dialog" aria-modal="true">
           <div className="card card-shadow max-h-[90vh] w-full max-w-lg overflow-y-auto">
             <h2 className="display text-4xl">Lock in your portfolio?</h2>
-            <p className="mt-1 text-ink-2">Once submitted, your team can&apos;t change it.</p>
+            <p className="mt-1 text-ink-2">Once submitted, your table can&apos;t change it.</p>
             <table className="table mt-4">
               <tbody>
                 {presenters.map((p) => (
                   <tr key={p.id}>
                     <td className="font-semibold">{p.name}</td>
-                    <td className="mono text-right">{money(drafts[p.id].amount)}</td>
+                    <td className="mono text-right">{money(draftOf(p.id).amount)}</td>
                   </tr>
                 ))}
                 <tr>

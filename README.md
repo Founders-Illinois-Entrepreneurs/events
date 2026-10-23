@@ -5,7 +5,7 @@ Live activities for **Founders · Illinois Entrepreneurs** events, built to be r
 The first tool is the **R&D Pitch Evaluation** investment game:
 
 1. The R&D teams pitch (e.g. at their midpoint presentations).
-2. Club members sit at investor tables of 1–3 people. Each table gets fake capital (default **$200,000**) and must invest **all of it** across the R&D teams.
+2. Club members sit at investor tables (a few people each) and use **one phone per table**. Each table gets fake capital (default **$200,000**) and must invest **all of it** across the R&D teams.
 3. For every R&D team, the table writes **why** it invested that amount and **what would make it invest more**, and scores the team 1–5 on each pillar of the rubric.
 4. The R&D team with the most investment wins. Ties go to the higher average rubric score.
 
@@ -23,20 +23,21 @@ Both tracks are scored on the same pillars, so results stay comparable. Partner 
 
 ## How an event runs
 
-There are no accounts. Members open the link, type their name and pick their table. Their browser remembers them. Organizers use one shared password.
+There are no accounts. One person per table opens the link, types the names of everyone at the table, and picks the table. That phone is remembered. Other phones can't take over a table unless an organizer presses **Free table**. Organizers use one shared password.
 
 Every event moves through four phases, controlled from the organizer page:
 
 | Phase | What members can do |
 | --- | --- |
 | **Setup** | Join a table, read "What investors look for". |
-| **Open investing** | Fill in the table's portfolio together. It autosaves and syncs between teammates every few seconds. Then submit. |
+| **Open investing** | Fill in the table's portfolio together on the one phone. It autosaves. Then submit. |
 | **Closed** | Nothing. Tables that didn't submit don't count. |
 | **Revealed** | See results, rubric averages, and all feedback. |
 
 Rules the database enforces:
 
-- Tables have a size limit. Once a table submits, nobody can join, leave or edit it. An organizer can unlock it.
+- One phone per table. Once a table submits, it's locked. An organizer can unlock it while investing is still open.
+- Closing investing automatically submits any table whose portfolio is complete but who forgot to press Submit. Incomplete tables don't count.
 - A portfolio can only be submitted if it invests exactly the full amount, and every R&D team has a reason, an "invest more if" answer, and a score on every pillar.
 - Tables can't see each other's picks until the reveal.
 - Feedback is anonymous unless the organizer turns on "show investor table names".
@@ -47,7 +48,7 @@ Organizer extras:
 - A full-screen **projector reveal**.
 - A **feedback report** (print/PDF or CSV) to hand to each R&D team.
 
-Since there are no accounts, someone could join twice from different browsers. The tracker lists every person by name, so remove anyone who doesn't belong.
+If a table signs in on the wrong phone, or a phone dies, press **Free table** in the tracker. Their answers so far are kept for whichever phone signs in next.
 
 ## Event-night checklist
 
@@ -62,7 +63,7 @@ Since there are no accounts, someone could join twice from different browsers. T
 **At the meeting**
 
 1. Put the site's address on the projector. The home page opens the current event.
-2. Members type their name and join their table while the event is still in **Setup**.
+2. Each table picks one phone, types everyone's names and signs in while the event is still in **Setup**.
 3. Run the pitches. Suggested format: **7 minutes of pitch and 5 of Q&A per team**, with a visible timer.
 4. Click **Open investing**. Give tables 10–15 minutes and watch the **live tracker**.
 5. Click **Close investing**. Optionally ★ the best-reasoned portfolio.

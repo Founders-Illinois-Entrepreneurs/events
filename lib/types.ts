@@ -92,8 +92,7 @@ export type RubricScore = {
 export type TeamCount = {
   id: string
   name: string
-  max_members: number
-  member_count: number
+  taken: boolean
   submitted: boolean
 }
 
@@ -105,11 +104,19 @@ export type Results = {
     id: string
     name: string
     one_liner: string
+    track: Track
     total: number
     avg_score: number | null
     rank: number
     pillar_avgs: Record<string, number>
-    feedback: { investor: string | null; amount: number; rationale: string; invest_more_if: string; starred: boolean }[]
+    feedback: {
+      investor: string | null
+      amount: number
+      rationale: string
+      invest_more_if: string
+      starred: boolean
+      auto: boolean
+    }[]
   }[]
   starred: { investor: string | null; allocations: { team: string; amount: number; rationale: string }[] }[]
 }

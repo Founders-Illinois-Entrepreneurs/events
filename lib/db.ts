@@ -29,6 +29,14 @@ export function errorMessage(e: unknown) {
   const msg = e instanceof Error ? e.message : String(e)
   if (/duplicate key/.test(msg)) return 'That name or slug is already taken.'
   if (/events_slug_check/.test(msg)) return 'Slugs can only use lowercase letters, numbers and dashes.'
-  if (/invalid input syntax for type uuid/.test(msg)) return 'Not found.'
+  if (/max_members_check/.test(msg)) return 'Max size must be between 1 and 20.'
+  if (/members_name_check/.test(msg)) return 'Please enter a name (up to 120 characters).'
+  if (/starting_capital_check/.test(msg)) return 'Capital must be more than $0.'
+  if (/invalid input syntax for type uuid|violates foreign key/.test(msg)) return 'Not found. Try refreshing the page.'
+  if (/invalid input syntax|out of range|violates check constraint|violates not-null/.test(msg)) {
+    return 'That value isn’t allowed. Please check it and try again.'
+  }
+  // Messages we raise ourselves in SQL are written for people; anything else stays generic.
+  if (/relation|column|syntax error|connect|timeout|ECONN/i.test(msg)) return 'Something went wrong. Please try again.'
   return msg
 }

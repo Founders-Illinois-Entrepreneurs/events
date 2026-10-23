@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { one, query } from '@/lib/db'
+import { one, pool, query } from '@/lib/db'
 import type { Member } from '@/lib/types'
 
 // Two simple kinds of access, no accounts:
@@ -30,22 +30,35 @@ export async function getMember(): Promise<Member | null> {
   return one<Member>('select id, name from members where token_hash = $1', [sha256(token)])
 }
 
-// Returns the current member, creating one (and setting the cookie) if needed.
-// Only call from Server Actions / Route Handlers, where cookies can be set.
-export async function getOrCreateMember(name: string): Promise<Member> {
-  const clean = name.trim().replace(/\s+/g, ' ').slice(0, 60)
+// Signs this phone in for a table. A new phone's record is created in the same
+// transaction as the join, so failed joins (full/taken table, bad id) leave nothing behind.
+// Only call from Server Actions, where cookies can be set.
+export async function joinTableAs(names: string, teamId: string): Promise<Member> {
+  const clean = names.trim().replace(/\s+/g, ' ').slice(0, 120)
   const existing = await getMember()
   if (existing) {
+    await query('select invest_join_team($1, $2)', [existing.id, teamId])
     if (clean && clean !== existing.name) {
       await query('update members set name = $2 where id = $1', [existing.id, clean])
       return { ...existing, name: clean }
     }
     return existing
   }
-  if (!clean) throw new Error('Please enter your name.')
+  if (!clean) throw new Error('Please enter the names of everyone at your table.')
   const token = randomBytes(32).toString('base64url')
   const id = randomBytes(12).toString('hex')
-  await query('insert into members (id, name, token_hash) values ($1, $2, $3)', [id, clean, sha256(token)])
+  const client = await pool.connect()
+  try {
+    await client.query('begin')
+    await client.query('insert into members (id, name, token_hash) values ($1, $2, $3)', [id, clean, sha256(token)])
+    await client.query('select invest_join_team($1, $2)', [id, teamId])
+    await client.query('commit')
+  } catch (e) {
+    await client.query('rollback').catch(() => {})
+    throw e
+  } finally {
+    client.release()
+  }
   ;(await cookies()).set(MEMBER_COOKIE, token, cookieOptions(MONTH))
   return { id, name: clean }
 }

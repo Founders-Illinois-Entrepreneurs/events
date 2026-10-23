@@ -34,8 +34,8 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="space-y-8">
-      {/* Picks up phase changes (e.g. "investing is open") and teammates joining. */}
-      {event.status !== 'revealed' && <AutoRefresh seconds={event.status === 'open' && team && !submittedAt ? 8 : 4} />}
+      {/* Picks up phase changes (e.g. "investing is open"). */}
+      {event.status !== 'revealed' && <AutoRefresh seconds={submittedAt ? 10 : event.status === 'open' && team ? 8 : 5} />}
 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-4">
@@ -52,7 +52,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           <h1 className="display mt-2 text-4xl sm:text-6xl">{event.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusChip status={event.status} />
-            <span className="chip chip-muted">{money(event.starting_capital)} per team</span>
+            <span className="chip chip-muted">{money(event.starting_capital)} per table</span>
           </div>
           </div>
         </div>
@@ -71,17 +71,17 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
       {team ? (
         <section className="card card-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="eyebrow eyebrow-blue">Your investor team</p>
+            <p className="eyebrow eyebrow-blue">Your table</p>
             <p className="display mt-1 text-3xl">{team.name}</p>
             <p className="text-sm text-ink-2">{teammates.map((t) => t.name).join(' · ')}</p>
           </div>
-          {canChangeTeam && <LeaveTeamButton eventId={event.id} slug={slug} />}
+          {canChangeTeam && allocations.length === 0 && <LeaveTeamButton eventId={event.id} slug={slug} />}
         </section>
       ) : canChangeTeam ? (
         <JoinTeams teams={teamCounts} slug={slug} knownName={me?.name ?? null} />
       ) : (
         <p className="alert alert-info">
-          Teams are locked for this event.
+          Tables are locked for this event.
           {event.status === 'revealed' ? ' The results are out.' : ''}
         </p>
       )}
@@ -109,13 +109,37 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         <div className="card card-shadow">
           <h2 className="display text-4xl">Investing opens after the pitches</h2>
           <p className="mt-2 text-ink-2">
-            Watch each R&amp;D team pitch. Your team will split <strong>{money(event.starting_capital)}</strong>{' '}
+            Watch each R&amp;D team pitch. Your table will split <strong>{money(event.starting_capital)}</strong>{' '}
             across them, every dollar of it, and explain why. While you wait, read{' '}
             <Link className="underline" href={`/invest/${slug}/learn`}>
               what investors look for
             </Link>
             . This page updates on its own when investing opens.
           </p>
+          {presenters.length > 0 && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="field-label">Today&apos;s teams</p>
+                <ul className="space-y-1">
+                  {presenters.map((p) => (
+                    <li key={p.id}>
+                      <strong>{p.name}</strong>
+                      {p.one_liner && <span className="text-ink-2"> · {p.one_liner}</span>}
+                      {p.track === 'partner' && <span className="chip chip-blue ml-2">Startup partner</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="field-label">Take notes on these during the pitches</p>
+                <ol className="list-decimal space-y-0.5 pl-5 text-ink-2">
+                  {pillars.map((pl) => (
+                    <li key={pl.id}>{pl.label}</li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
         </div>
       )
     }
@@ -124,8 +148,6 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         <InvestForm
           event={event}
           team={team!}
-          me={me!.id}
-          teammates={teammates}
           presenters={presenters}
           pillars={pillars}
           initialAllocations={allocations}
@@ -135,7 +157,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     }
     return (
       <p className="alert alert-warn">
-        Investing closed before your team submitted, so your picks won&apos;t count this time.
+        Investing closed before your table submitted, so your picks won&apos;t count this time.
       </p>
     )
   }

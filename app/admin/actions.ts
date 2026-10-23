@@ -15,6 +15,17 @@ import type { EventStatus } from '@/lib/types'
 function str(fd: FormData, key: string) {
   return String(fd.get(key) ?? '').trim()
 }
+// Dollar amounts: "200000", "200,000", "$200,000", "150k". Anything else is rejected.
+function dollars(fd: FormData, key: string): number | null {
+  const raw = str(fd, key).toLowerCase().replace(/[\s$,]/g, '')
+  if (!raw) return null
+  const m = raw.match(/^(\d+(?:\.\d+)?)(k|m)?$/)
+  if (!m) throw new Error('Capital must be a dollar amount, like 200,000 or 200k.')
+  const n = Math.round(parseFloat(m[1]) * (m[2] === 'k' ? 1_000 : m[2] === 'm' ? 1_000_000 : 1))
+  if (n <= 0 || n > 1_000_000_000) throw new Error('Capital must be between $1 and $1,000,000,000.')
+  return n
+}
+
 function int(fd: FormData, key: string, fallback = 0) {
   const n = parseInt(String(fd.get(key) ?? '').replace(/[^0-9-]/g, ''), 10)
   return Number.isFinite(n) ? n : fallback
@@ -30,7 +41,7 @@ async function fail(message: string): Promise<never> {
 }
 
 // Runs a change as an organizer.
-async function admin(fn: () => Promise<unknown>, eventId?: string) {
+async function admin(fn: () => Promise<unknown>, eventId?: string, { cleanUrl = true } = {}) {
   await requireAdmin()
   try {
     await fn()
@@ -39,6 +50,13 @@ async function admin(fn: () => Promise<unknown>, eventId?: string) {
   }
   revalidatePath('/admin')
   if (eventId) revalidatePath(`/admin/invest/${eventId}`)
+  // Clear an old error message from the URL once something succeeds.
+  const ref = (await headers()).get('referer')
+  let clean: string | null = null
+  try {
+    if (ref?.includes('error=')) clean = new URL(ref).pathname
+  } catch {}
+  if (clean && cleanUrl) redirect(clean)
 }
 
 function track(fd: FormData) {
@@ -54,47 +72,67 @@ export async function createEvent(fd: FormData) {
   const slug = slugify(str(fd, 'slug') || name)
   const clone = str(fd, 'clone_from') || null
   let id = ''
+  let capital: number | null = null
+  try {
+    capital = dollars(fd, 'starting_capital')
+  } catch (e) {
+    return fail(errorMessage(e))
+  }
   await admin(async () => {
     const row = await one<{ id: string }>('select invest_create_event($1, $2, $3, $4) as id', [
       name,
       slug,
-      int(fd, 'starting_capital', 200000),
+      capital,
       clone,
     ])
     id = row!.id
-  })
+  }, undefined, { cleanUrl: false })
   redirect(`/admin/invest/${id}`)
 }
 
 export async function updateEvent(fd: FormData) {
   const id = str(fd, 'id')
-  await admin(
-    () =>
-      query('update events set name = $2, starting_capital = $3, reveal_names = $4, archived = $5 where id = $1', [
-        id,
-        str(fd, 'name'),
-        int(fd, 'starting_capital', 200000),
-        fd.get('reveal_names') === 'on',
-        fd.get('archived') === 'on',
-      ]),
-    id,
-  )
+  await admin(async () => {
+    const capital = dollars(fd, 'starting_capital')
+    if (capital === null) throw new Error('Enter the capital per table.')
+    const ev = await one<{ starting_capital: number; started: boolean }>(
+      `select starting_capital, exists (select 1 from invest_allocations where event_id = $1) as started
+       from events where id = $1`,
+      [id],
+    )
+    if (ev?.started && ev.starting_capital !== capital) {
+      throw new Error('Capital can’t change once tables have started investing.')
+    }
+    await query('update events set name = $2, starting_capital = $3, reveal_names = $4, archived = $5 where id = $1', [
+      id,
+      str(fd, 'name'),
+      capital,
+      fd.get('reveal_names') === 'on',
+      fd.get('archived') === 'on',
+    ])
+  }, id)
 }
 
 export async function setStatus(fd: FormData) {
   const id = str(fd, 'id')
   const status = str(fd, 'status') as EventStatus
   if (!STATUSES.includes(status)) return fail('Unknown phase.')
-  await admin(() => query('update events set status = $2 where id = $1', [id, status]), id)
+  await admin(
+    () =>
+      status === 'closed'
+        ? query('select invest_close_event($1)', [id]) // also auto-submits complete portfolios
+        : query('update events set status = $2 where id = $1', [id, status]),
+    id,
+  )
 }
 
 export async function deleteEvent(fd: FormData) {
   const id = str(fd, 'id')
   await admin(async () => {
     const ev = await one<{ slug: string }>('select slug from events where id = $1', [id])
-    if (!ev || str(fd, 'confirm') !== ev.slug) throw new Error('Type the event slug exactly to delete it.')
+    if (!ev || str(fd, 'confirm').toLowerCase() !== ev.slug) throw new Error('Type the event slug exactly to delete it.')
     await query('delete from events where id = $1', [id])
-  })
+  }, undefined, { cleanUrl: false })
   redirect('/admin')
 }
 
@@ -146,9 +184,10 @@ export async function addInvestorTeams(fd: FormData) {
   await admin(
     () =>
       query(
-        `insert into invest_investor_teams (event_id, name, max_members)
-         select $1, unnest($2::text[]), $3`,
-        [eventId, names, int(fd, 'max_members', 3)],
+        `insert into invest_investor_teams (event_id, name)
+         select $1, n from unnest($2::text[]) as n
+         on conflict (event_id, name) do nothing`,
+        [eventId, [...new Set(names)]],
       ),
     eventId,
   )
@@ -158,11 +197,7 @@ export async function updateInvestorTeam(fd: FormData) {
   const eventId = str(fd, 'event_id')
   await admin(
     () =>
-      query('update invest_investor_teams set name = $2, max_members = $3 where id = $1', [
-        str(fd, 'id'),
-        str(fd, 'name'),
-        int(fd, 'max_members', 3),
-      ]),
+      query('update invest_investor_teams set name = $2 where id = $1', [str(fd, 'id'), str(fd, 'name')]),
     eventId,
   )
 }
@@ -172,27 +207,27 @@ export async function deleteInvestorTeam(fd: FormData) {
   await admin(() => query('delete from invest_investor_teams where id = $1', [str(fd, 'id')]), eventId)
 }
 
+// "Free table": signs the table's phone out so a different phone can sign in.
 export async function moveMember(fd: FormData) {
   const eventId = str(fd, 'event_id')
   const userId = str(fd, 'user_id')
-  const to = str(fd, 'to_team')
-  if (!to) return
   await admin(
-    () =>
-      to === '__remove'
-        ? query('delete from invest_team_members where event_id = $1 and user_id = $2', [eventId, userId])
-        : query('update invest_team_members set investor_team_id = $3 where event_id = $1 and user_id = $2', [
-            eventId,
-            userId,
-            to,
-          ]),
+    () => query('delete from invest_team_members where event_id = $1 and user_id = $2', [eventId, userId]),
     eventId,
   )
 }
 
 export async function unlockSubmission(fd: FormData) {
   const eventId = str(fd, 'event_id')
-  await admin(() => query('delete from invest_submissions where investor_team_id = $1', [str(fd, 'team_id')]), eventId)
+  await admin(async () => {
+    const r = await query(
+      `delete from invest_submissions s using invest_investor_teams t, events e
+       where s.investor_team_id = $1 and t.id = s.investor_team_id and e.id = t.event_id and e.status = 'open'
+       returning s.investor_team_id`,
+      [str(fd, 'team_id')],
+    )
+    if (r.length === 0) throw new Error('Submissions can only be unlocked while investing is open.')
+  }, eventId)
 }
 
 export async function toggleStar(fd: FormData) {

@@ -10,14 +10,14 @@ export default function LeaveTeamButton({ eventId, slug }: { eventId: string; sl
       className="btn btn-ghost btn-sm"
       disabled={pending}
       onClick={() => {
-        if (!confirm('Leave this team? You can join another one.')) return
+        if (!confirm('Sign this phone out of the table? You can pick a different table.')) return
         start(async () => {
           const res = await leaveTeam(eventId, slug)
           if (res.error) alert(res.error)
         })
       }}
     >
-      Switch team
+      Wrong table?
     </button>
   )
 }

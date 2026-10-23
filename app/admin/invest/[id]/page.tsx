@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { requireAdmin } from '@/lib/auth'
 import { one, query } from '@/lib/db'
@@ -36,7 +37,7 @@ import {
 } from '../../actions'
 
 type Member = { user_id: string; investor_team_id: string; name: string; joined_at: string }
-type Submission = { investor_team_id: string; submitted_at: string; starred: boolean }
+type Submission = { investor_team_id: string; submitted_at: string; starred: boolean; submitted_by: string | null }
 
 const PHASES: { status: EventStatus; label: string; help: string; confirm?: string }[] = [
   { status: 'setup', label: 'Setup', help: 'Members can join teams and read the rubric.' },
@@ -50,7 +51,8 @@ const PHASES: { status: EventStatus; label: string; help: string; confirm?: stri
     status: 'closed',
     label: 'Close investing',
     help: 'No more edits or submissions. Unsubmitted teams don’t count.',
-    confirm: 'Close investing? Teams that haven’t submitted won’t count.',
+    confirm:
+      'Close investing? Tables with a complete portfolio are submitted automatically. Incomplete ones won’t count.',
   },
   {
     status: 'revealed',
@@ -75,12 +77,14 @@ export default async function AdminEventPage({
   await requireAdmin()
   const { id } = await params
   const { error } = await searchParams
+  const h = await headers()
+  const origin = `${h.get('x-forwarded-proto') ?? 'https'}://${h.get('host') ?? ''}`
   const event = await one<ClubEvent>('select * from events where id::text = $1', [id])
   if (!event) notFound()
 
   const [presenters, investors, members, allocations, scores, submissions, pillars] = await Promise.all([
     query<PresenterTeam>('select * from invest_presenter_teams where event_id = $1 order by sort_order, name', [id]),
-    query<InvestorTeam>('select * from invest_investor_teams where event_id = $1 order by name', [id]),
+    query<InvestorTeam>('select * from invest_investor_teams where event_id = $1 order by length(name), name', [id]),
     query<Member>(
       `select m.user_id, m.investor_team_id, mb.name, m.joined_at
        from invest_team_members m join members mb on mb.id = m.user_id
@@ -92,7 +96,7 @@ export default async function AdminEventPage({
       'select investor_team_id, presenter_team_id, pillar_id from invest_rubric_scores where event_id = $1',
       [id],
     ),
-    query<Submission>('select investor_team_id, submitted_at, starred from invest_submissions where event_id = $1', [id]),
+    query<Submission>('select investor_team_id, submitted_at, starred, submitted_by from invest_submissions where event_id = $1', [id]),
     query<Pillar>('select * from invest_rubric_pillars where event_id = $1 order by sort_order, label', [id]),
   ])
 
@@ -119,7 +123,7 @@ export default async function AdminEventPage({
             <h1 className="display text-5xl sm:text-6xl">{event.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusChip status={event.status} />
-              <span className="chip chip-muted">{money(event.starting_capital)} per team</span>
+              <span className="chip chip-muted">{money(event.starting_capital)} per table</span>
               {event.archived && <span className="chip chip-muted">Archived</span>}
             </div>
           </div>
@@ -136,7 +140,7 @@ export default async function AdminEventPage({
           </div>
         </div>
         <p className="mono text-sm text-ink-2">
-          Members join at: <strong>/invest/{event.slug}</strong>
+          Members join at: <strong className="break-all">{origin}/invest/{event.slug}</strong>
         </p>
       </header>
 
@@ -148,6 +152,10 @@ export default async function AdminEventPage({
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {PHASES.map((ph, i) => {
             const current = ph.status === event.status
+            const backwards = i < PHASES.findIndex((x) => x.status === event.status)
+            const message = backwards
+              ? `Go BACK to "${STATUS_LABEL[ph.status]}"? This is unusual; members' screens will change.`
+              : ph.confirm
             return (
               <form key={ph.status} action={setStatus} className={`card p-3 sm:p-[22px] ${current ? 'card-shadow bg-orange-soft' : ''}`}>
                 <input type="hidden" name="id" value={id} />
@@ -158,16 +166,22 @@ export default async function AdminEventPage({
                 {current ? (
                   <span className="chip chip-orange mt-3">Current</span>
                 ) : (
-                  <ConfirmButton message={ph.confirm} className="btn btn-primary btn-sm mt-3">
-                    {ph.label}
+                  <ConfirmButton message={message} className={`btn btn-sm mt-3 ${backwards ? 'btn-ghost' : 'btn-primary'}`}>
+                    {backwards ? `Back to ${ph.label.toLowerCase()}` : ph.label}
                   </ConfirmButton>
                 )}
               </form>
             )
           })}
         </div>
+        {event.status === 'closed' && (
+          <p className="alert alert-info">
+            Tip: open the <strong>Projector reveal</strong> and step through it <em>before</em> pressing Reveal results.
+            Phones show the results within seconds of revealing.
+          </p>
+        )}
         {presenters.length === 0 && <p className="alert alert-warn">Add the R&amp;D teams below before opening.</p>}
-        {investors.length === 0 && <p className="alert alert-warn">Add investor teams below so members can join.</p>}
+        {investors.length === 0 && <p className="alert alert-warn">Add investor tables below so members can join.</p>}
       </section>
 
       {/* Live tracker */}
@@ -175,7 +189,7 @@ export default async function AdminEventPage({
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="display text-4xl">Live tracker</h2>
           <p className="mono text-sm">
-            {submittedCount}/{investors.length} teams submitted · {membersTotal} members joined
+            {submittedCount}/{investors.length} tables submitted · {membersTotal} signed in
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -183,7 +197,7 @@ export default async function AdminEventPage({
             <div key={p.id} className="card p-3 sm:p-[22px]">
               <p className="eyebrow truncate">{p.name}</p>
               <p className="num text-2xl sm:text-4xl">{money(p.total)}</p>
-              <p className="mono hidden text-xs text-ink-3 sm:block">from submitted teams · organizers only until reveal</p>
+              <p className="mono hidden text-xs text-ink-3 sm:block">from submitted tables · organizers only until reveal</p>
             </div>
           ))}
         </div>
@@ -191,8 +205,8 @@ export default async function AdminEventPage({
           <table className="table">
             <thead>
               <tr>
-                <th>Investor team</th>
-                <th>Members</th>
+                <th>Table</th>
+                <th>Who&apos;s there</th>
                 <th>Progress</th>
                 <th>Status</th>
                 <th></th>
@@ -223,13 +237,27 @@ export default async function AdminEventPage({
                     <td>
                       {sub ? (
                         <span className="chip chip-green">
-                          Submitted {new Date(sub.submitted_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          {sub.submitted_by ? 'Submitted' : 'Auto-submitted'}{' '}
+                          {new Date(sub.submitted_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                         </span>
                       ) : (
                         <span className="chip chip-muted">Working</span>
                       )}
                     </td>
                     <td className="whitespace-nowrap text-right">
+                      {!sub && tm.length > 0 && (event.status === 'setup' || event.status === 'open') && (
+                        <form action={moveMember} className="flex justify-end">
+                          <input type="hidden" name="event_id" value={id} />
+                          <input type="hidden" name="user_id" value={tm[0].user_id} />
+                          <input type="hidden" name="to_team" value="__remove" />
+                          <ConfirmButton
+                            message={`Free ${t.name}? The phone signed in now is signed out, and another phone can sign in. Answers so far are kept.`}
+                            className="btn btn-ghost btn-sm"
+                          >
+                            Free table
+                          </ConfirmButton>
+                        </form>
+                      )}
                       {sub && (
                         <div className="flex justify-end gap-2">
                           <form action={toggleStar}>
@@ -240,13 +268,18 @@ export default async function AdminEventPage({
                               {sub.starred ? '★ Best thesis' : '☆ Star'}
                             </ConfirmButton>
                           </form>
-                          <form action={unlockSubmission}>
-                            <input type="hidden" name="event_id" value={id} />
-                            <input type="hidden" name="team_id" value={t.id} />
-                            <ConfirmButton message={`Unlock ${t.name}'s portfolio so they can edit it?`} className="btn btn-ghost btn-sm">
-                              Unlock
-                            </ConfirmButton>
-                          </form>
+                          {event.status === 'open' && (
+                            <form action={unlockSubmission}>
+                              <input type="hidden" name="event_id" value={id} />
+                              <input type="hidden" name="team_id" value={t.id} />
+                              <ConfirmButton
+                                message={`Unlock ${t.name}'s portfolio so they can edit it? They'll need to submit again.`}
+                                className="btn btn-ghost btn-sm"
+                              >
+                                Unlock
+                              </ConfirmButton>
+                            </form>
+                          )}
                         </div>
                       )}
                     </td>
@@ -312,82 +345,41 @@ export default async function AdminEventPage({
         </p>
       </section>
 
-      {/* Investor teams */}
+      {/* Investor tables */}
       <section className="space-y-4">
-        <h2 className="display text-4xl">Investor teams</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {investors.map((t) => {
-            const tm = members.filter((m) => m.investor_team_id === t.id)
-            return (
-              <div key={t.id} className="card space-y-3">
-                <form action={updateInvestorTeam} className="grid grid-cols-[1fr_90px_auto] items-end gap-2">
-                  <input type="hidden" name="id" value={t.id} />
-                  <input type="hidden" name="event_id" value={id} />
-                  <div>
-                    <label className="field-label">Name</label>
-                    <input name="name" className="input" defaultValue={t.name} required />
-                  </div>
-                  <div>
-                    <label className="field-label">Max</label>
-                    <input name="max_members" className="input mono" defaultValue={t.max_members} inputMode="numeric" />
-                  </div>
-                  <ConfirmButton className="btn btn-primary btn-sm">Save</ConfirmButton>
-                </form>
-                <ul className="space-y-2">
-                  {tm.length === 0 && <li className="text-sm text-ink-3">No members yet.</li>}
-                  {tm.map((m) => (
-                    <li key={m.user_id}>
-                      <form action={moveMember} className="flex items-center justify-between gap-2">
-                        <input type="hidden" name="event_id" value={id} />
-                        <input type="hidden" name="user_id" value={m.user_id} />
-                        <span className="min-w-0 truncate text-sm">
-                          {m.name}{' '}
-                          <span className="mono text-xs text-ink-3">
-                            joined {new Date(m.joined_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                          </span>
-                        </span>
-                        <span className="flex gap-1">
-                          <select name="to_team" className="input h-9 min-h-0 w-36 py-0" defaultValue="">
-                            <option value="" disabled>
-                              Move to…
-                            </option>
-                            {investors
-                              .filter((o) => o.id !== t.id)
-                              .map((o) => (
-                                <option key={o.id} value={o.id}>
-                                  {o.name}
-                                </option>
-                              ))}
-                            <option value="__remove">Remove from event</option>
-                          </select>
-                          <ConfirmButton className="btn btn-ghost btn-sm">Go</ConfirmButton>
-                        </span>
-                      </form>
-                    </li>
-                  ))}
-                </ul>
-                <form action={deleteInvestorTeam} className="text-right">
-                  <input type="hidden" name="id" value={t.id} />
-                  <input type="hidden" name="event_id" value={id} />
-                  <ConfirmButton message={`Delete ${t.name} and its portfolio?`} className="btn btn-danger btn-sm">
-                    Delete team
-                  </ConfirmButton>
-                </form>
-              </div>
-            )
-          })}
+        <div>
+          <h2 className="display text-4xl">Investor tables</h2>
+          <p className="text-sm text-ink-2">One phone signs in per table. To let a different phone take over, use “Free table” in the tracker.</p>
         </div>
-        <form action={addInvestorTeams} className="card card-muted grid gap-3 md:grid-cols-[1fr_120px_auto] md:items-end">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {investors.map((t) => (
+            <div key={t.id} className="card flex items-end gap-2 p-3">
+              <form action={updateInvestorTeam} className="flex flex-1 items-end gap-2">
+                <input type="hidden" name="id" value={t.id} />
+                <input type="hidden" name="event_id" value={id} />
+                <div className="flex-1">
+                  <label className="field-label">Name</label>
+                  <input name="name" className="input" defaultValue={t.name} required />
+                </div>
+                <ConfirmButton className="btn btn-primary btn-sm">Save</ConfirmButton>
+              </form>
+              <form action={deleteInvestorTeam}>
+                <input type="hidden" name="id" value={t.id} />
+                <input type="hidden" name="event_id" value={id} />
+                <ConfirmButton message={`Delete ${t.name} and its portfolio?`} className="btn btn-danger btn-sm">
+                  Delete
+                </ConfirmButton>
+              </form>
+            </div>
+          ))}
+        </div>
+        <form action={addInvestorTeams} className="card card-muted grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <input type="hidden" name="event_id" value={id} />
           <div>
-            <label className="field-label">Add investor teams (one name per line)</label>
+            <label className="field-label">Add tables (one name per line)</label>
             <textarea name="names" className="input" placeholder={'Table 1\nTable 2\nTable 3'} required />
           </div>
-          <div>
-            <label className="field-label">Max members</label>
-            <input name="max_members" className="input mono" defaultValue="3" inputMode="numeric" />
-          </div>
-          <button className="btn btn-orange btn-sm">Add teams</button>
+          <button className="btn btn-orange btn-sm">Add tables</button>
         </form>
       </section>
 
@@ -423,13 +415,21 @@ export default async function AdminEventPage({
             <input name="name" className="input" defaultValue={event.name} required />
           </div>
           <div>
-            <label className="field-label">Capital per investor team ($)</label>
-            <input name="starting_capital" className="input mono" defaultValue={event.starting_capital} inputMode="numeric" />
-            <p className="mt-1 text-xs text-ink-3">Change this before anyone starts investing.</p>
+            <label className="field-label">Capital per table ($)</label>
+            <input
+              name="starting_capital"
+              className="input mono"
+              defaultValue={event.starting_capital}
+              inputMode="numeric"
+              readOnly={allocations.length > 0}
+            />
+            <p className="mt-1 text-xs text-ink-3">
+              {allocations.length > 0 ? 'Locked: tables have already started investing.' : 'Set this before investing opens.'}
+            </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="reveal_names" defaultChecked={event.reveal_names} />
-            Show investor team names next to their feedback
+            Show table names next to their feedback
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="archived" defaultChecked={event.archived} />
@@ -445,7 +445,9 @@ export default async function AdminEventPage({
           </p>
           <input type="hidden" name="id" value={id} />
           <div>
-            <label className="field-label">Type the slug to confirm: {event.slug}</label>
+            <label className="field-label">
+              Type the slug to confirm: <span className="mono normal-case">{event.slug}</span>
+            </label>
             <input name="confirm" className="input mono" autoComplete="off" />
           </div>
           <ConfirmButton message="Delete this event forever?" className="btn btn-danger">

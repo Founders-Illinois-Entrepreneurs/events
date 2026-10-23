@@ -34,7 +34,7 @@ export default function ResultsView({ results }: { results: Results }) {
           </div>
         ))}
         <p className="mono text-xs text-ink-3">
-          {results.submitted_teams} investor team{results.submitted_teams === 1 ? '' : 's'} submitted ·{' '}
+          {results.submitted_teams} table{results.submitted_teams === 1 ? '' : 's'} submitted ·{' '}
           {money(event.starting_capital)} each · ties go to the higher average rubric score
         </p>
       </section>
@@ -45,7 +45,7 @@ export default function ResultsView({ results }: { results: Results }) {
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             {results.starred.map((s, i) => (
               <div key={i} className="card card-shadow space-y-2 bg-orange-soft">
-                <p className="eyebrow">{s.investor ?? 'Anonymous investor team'}</p>
+                <p className="eyebrow">{s.investor ?? 'Anonymous table'}</p>
                 {s.allocations.map((a) => (
                   <p key={a.team} className="text-sm">
                     <strong>
@@ -62,6 +62,7 @@ export default function ResultsView({ results }: { results: Results }) {
 
       <section>
         <h2 className="display text-4xl">Rubric averages</h2>
+        {teams.length > 2 && <p className="text-xs text-ink-3 sm:hidden">Swipe the table sideways to see every team →</p>}
         <div className="card mt-3 overflow-x-auto p-0">
           <table className="table">
             <thead>
