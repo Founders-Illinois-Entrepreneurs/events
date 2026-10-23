@@ -220,7 +220,7 @@ export default function InvestForm({
   }
 
   return (
-    <div className="space-y-6 pb-32">
+    <div className="space-y-6 pb-28">
       <div className="alert alert-info">
         Split <strong>all {money(capital)}</strong> across the teams. For each team, explain your decision and score
         it on every pillar. Edits save automatically and your teammates see them live.
@@ -344,7 +344,7 @@ export default function InvestForm({
                           </p>
                         </div>
                       </details>
-                      <div className="score-row" role="group" aria-label={`${pl.label} score for ${p.name}`}>
+                      <div className="score-row w-full sm:w-auto" role="group" aria-label={`${pl.label} score for ${p.name}`}>
                         {[1, 2, 3, 4, 5].map((n) => (
                           <button
                             key={n}
@@ -368,23 +368,23 @@ export default function InvestForm({
       })}
 
       {/* Sticky money bar */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-ink bg-paper">
-        <div className="container-page flex flex-wrap items-center justify-between gap-3 py-3">
-          <div className="flex items-baseline gap-3">
-            <span className="field-label mb-0">Remaining</span>
-            <span className={`num text-4xl ${remaining === 0 ? 'text-green' : remaining < 0 ? 'text-red' : ''}`}>
+      <div className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t-2 border-ink bg-paper">
+        <div className="container-page flex items-center justify-between gap-3 pt-2 sm:py-3">
+          <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
+            <span className="field-label mb-0">Left</span>
+            <span className={`num text-3xl sm:text-4xl ${remaining === 0 ? 'text-green' : remaining < 0 ? 'text-red' : ''}`}>
               {money(remaining)}
             </span>
             <span className="mono hidden text-xs text-ink-3 sm:inline">
               {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'All changes saved' : saveState === 'error' ? 'Save failed' : ''}
             </span>
           </div>
-          <button className="btn btn-orange btn-lg" disabled={!ready || submitting} onClick={() => setReviewing(true)}>
+          <button className="btn btn-orange sm:min-h-[54px] sm:px-[26px] sm:text-base" disabled={!ready || submitting} onClick={() => setReviewing(true)}>
             Review &amp; submit
           </button>
         </div>
         {!ready && (
-          <p className="container-page pb-3 text-xs text-ink-2">
+          <p className="container-page truncate pt-1 text-xs text-ink-2 sm:pb-3 sm:whitespace-normal">
             {remaining > 0
               ? `Invest ${money(remaining)} more. `
               : remaining < 0
@@ -416,12 +416,12 @@ export default function InvestForm({
                 </tr>
               </tbody>
             </table>
-            <div className="mt-5 flex justify-end gap-2">
-              <button className="btn btn-ghost" onClick={() => setReviewing(false)} disabled={submitting}>
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+              <button className="btn btn-ghost px-3" onClick={() => setReviewing(false)} disabled={submitting}>
                 Keep editing
               </button>
-              <button className="btn btn-orange" onClick={submit} disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Submit for the team'}
+              <button className="btn btn-orange px-3" onClick={submit} disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Submit'}
               </button>
             </div>
           </div>

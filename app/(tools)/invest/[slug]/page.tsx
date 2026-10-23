@@ -45,11 +45,11 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
             width={741}
             height={1000}
             priority
-            className="mt-1 h-16 w-auto sm:h-20"
+            className="mt-1 h-12 w-auto sm:h-20"
           />
           <div>
           <p className="eyebrow">Founders R&amp;D · Investment game</p>
-          <h1 className="display mt-2 text-5xl sm:text-6xl">{event.name}</h1>
+          <h1 className="display mt-2 text-4xl sm:text-6xl">{event.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusChip status={event.status} />
             <span className="chip chip-muted">{money(event.starting_capital)} per team</span>

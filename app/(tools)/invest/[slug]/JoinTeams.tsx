@@ -47,9 +47,10 @@ export default function JoinTeams({
       <div>
         <h3 className="display text-3xl">Pick your investor table</h3>
         <p className="text-ink-2">Join the table you&apos;re sitting with. You&apos;ll share one portfolio.</p>
+        {!nameOk && <p className="mt-1 text-sm font-semibold text-orange-ink">↑ Type your name first to unlock the tables.</p>}
       </div>
       {error && <p className="alert alert-error">{error}</p>}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {teams.map((t) => {
           const full = t.member_count >= t.max_members
           const locked = full || t.submitted
@@ -65,9 +66,9 @@ export default function JoinTeams({
                   if (res.error) setError(res.error)
                 })
               }
-              className="card card-lift flex flex-col items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50"
+              className="card card-lift flex flex-col items-start gap-1 p-4 text-left disabled:cursor-not-allowed disabled:opacity-50 sm:p-[22px]"
             >
-              <span className="display text-3xl">{t.name}</span>
+              <span className="display text-2xl sm:text-3xl">{t.name}</span>
               <span className="mono text-sm text-ink-2">
                 {t.member_count}/{t.max_members} people
                 {t.submitted ? ' · submitted' : full ? ' · full' : ''}

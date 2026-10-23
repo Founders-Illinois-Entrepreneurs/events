@@ -145,16 +145,16 @@ export default async function AdminEventPage({
       {/* Phase control */}
       <section className="space-y-4">
         <h2 className="display text-4xl">Phase</h2>
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {PHASES.map((ph, i) => {
             const current = ph.status === event.status
             return (
-              <form key={ph.status} action={setStatus} className={`card ${current ? 'card-shadow bg-orange-soft' : ''}`}>
+              <form key={ph.status} action={setStatus} className={`card p-3 sm:p-[22px] ${current ? 'card-shadow bg-orange-soft' : ''}`}>
                 <input type="hidden" name="id" value={id} />
                 <input type="hidden" name="status" value={ph.status} />
                 <p className="mono text-xs text-ink-3">Step {i + 1}</p>
                 <p className="display mt-1 text-2xl">{STATUS_LABEL[ph.status]}</p>
-                <p className="mt-1 min-h-10 text-xs text-ink-2">{ph.help}</p>
+                <p className="mt-1 hidden min-h-10 text-xs text-ink-2 sm:block">{ph.help}</p>
                 {current ? (
                   <span className="chip chip-orange mt-3">Current</span>
                 ) : (
@@ -178,12 +178,12 @@ export default async function AdminEventPage({
             {submittedCount}/{investors.length} teams submitted · {membersTotal} members joined
           </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {runningTotals.map((p) => (
-            <div key={p.id} className="card">
-              <p className="eyebrow">{p.name}</p>
-              <p className="num text-4xl">{money(p.total)}</p>
-              <p className="mono text-xs text-ink-3">from submitted teams · admins only until reveal</p>
+            <div key={p.id} className="card p-3 sm:p-[22px]">
+              <p className="eyebrow truncate">{p.name}</p>
+              <p className="num text-2xl sm:text-4xl">{money(p.total)}</p>
+              <p className="mono hidden text-xs text-ink-3 sm:block">from submitted teams · organizers only until reveal</p>
             </div>
           ))}
         </div>
@@ -347,7 +347,7 @@ export default async function AdminEventPage({
                           </span>
                         </span>
                         <span className="flex gap-1">
-                          <select name="to_team" className="input h-8 min-h-0 w-36 py-0 text-xs" defaultValue="">
+                          <select name="to_team" className="input h-9 min-h-0 w-36 py-0" defaultValue="">
                             <option value="" disabled>
                               Move to…
                             </option>

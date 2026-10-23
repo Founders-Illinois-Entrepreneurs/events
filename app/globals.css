@@ -69,6 +69,7 @@ body {
   border-radius: 2px;
 }
 
+@layer components {
 /* Layout */
 .container-page {
   width: 100%;
@@ -216,7 +217,8 @@ a.card:hover, .card-lift:hover {
   border-radius: var(--radius);
   background: var(--paper);
   color: var(--ink);
-  font: 500 0.95rem/1.4 var(--font-sans);
+  /* 16px minimum: smaller text makes iPhones zoom in when you tap the field. */
+  font: 500 16px/1.4 var(--font-sans);
 }
 .input:focus { outline: none; box-shadow: 3px 3px 0 var(--orange); }
 .input:disabled { background: var(--paper-2); color: var(--ink-3); }
@@ -236,10 +238,12 @@ input[type="range"] { accent-color: var(--orange); width: 100%; }
 .alert-warn { border-color: var(--orange-ink); background: var(--orange-soft); color: var(--orange-ink); }
 
 /* Score picker (1–5) */
-.score-row { display: flex; gap: 4px; }
+.score-row { display: flex; gap: 6px; }
+/* Phones: five wide, thumb-sized buttons across the row. Larger screens: compact. */
 .score-btn {
-  width: 34px;
-  height: 34px;
+  flex: 1;
+  min-width: 0;
+  height: 44px;
   border: 2px solid var(--ink);
   border-radius: var(--radius);
   background: var(--paper);
@@ -250,6 +254,10 @@ input[type="range"] { accent-color: var(--orange); width: 100%; }
 .score-btn:hover:not(:disabled) { transform: translateY(-2px); }
 .score-btn[aria-pressed="true"] { background: var(--orange); }
 .score-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+@media (min-width: 640px) {
+  .score-btn { flex: none; width: 36px; height: 36px; }
+}
+.pb-safe { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 
 /* Tables */
 .table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -270,6 +278,7 @@ input[type="range"] { accent-color: var(--orange); width: 100%; }
 
 /* Dark band (projector view) */
 .band-blue { background: var(--blue); color: var(--paper); }
+}
 
 @media print {
   body { background: white; }

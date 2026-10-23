@@ -180,7 +180,3 @@ For a new tool:
 - Only server code talks to the database. Nothing secret is sent to the browser.
 - Member browsers hold a random token. Only its SHA-256 hash is stored.
 - Don't put real member data in `db/seed.sql` or anywhere in the repo.
-
-## License
-
-[MIT](LICENSE). Original project by [wgarrett707](https://github.com/wgarrett707), used with permission.
