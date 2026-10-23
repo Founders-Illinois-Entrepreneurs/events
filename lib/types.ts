@@ -65,6 +65,9 @@ export type Pillar = {
   note: string
   weight: number
   partner_listen_for: string
+  // Partner-track 1 and 3 (partner_strong_signals is the partner 5).
+  partner_weak_signals: string
+  partner_partial_signals: string
 }
 
 // The wording a pillar should show for a given team's track.

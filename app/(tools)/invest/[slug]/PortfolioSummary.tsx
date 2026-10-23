@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { money } from '@/lib/format'
+import { money, timeOfDay } from '@/lib/format'
 import { TRACK_LABEL } from '@/lib/types'
 import type { Allocation, Pillar, PresenterTeam, RubricScore } from '@/lib/types'
 
@@ -23,7 +23,7 @@ export default function PortfolioSummary({
   return (
     <section className="space-y-5">
       <div className="alert alert-ok">
-        Portfolio submitted {new Date(submittedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.{' '}
+        Portfolio submitted {timeOfDay(submittedAt)}.{' '}
         {revealed ? (
           <Link className="underline" href={`/invest/${slug}/results`}>
             See the results →

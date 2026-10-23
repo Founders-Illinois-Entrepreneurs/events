@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { money } from '@/lib/format'
+import { money, score1 } from '@/lib/format'
 import type { Results } from '@/lib/types'
 
 // Full-screen projector view. Press → / space to reveal teams from last place
@@ -13,7 +13,9 @@ export default function Reveal({
   results,
   investorTeams,
   backHref,
+  weights = {},
 }: {
+  weights?: Record<string, number>
   results: Results
   investorTeams: number
   backHref: string
@@ -37,6 +39,7 @@ export default function Reveal({
     return () => window.removeEventListener('keydown', onKey)
   }, [steps])
 
+  const weightOf = (key: string) => Number(weights[key] ?? 1)
   const bestEvidence = [...teams].sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0))[0]
 
   return (
@@ -72,6 +75,9 @@ export default function Reveal({
                         {visible && t.rank === 1 && done && (
                           <span className="chip chip-orange min-h-12 px-5 text-2xl text-ink">Winner</span>
                         )}
+                        {visible && teams.some((o) => o.id !== t.id && o.total === t.total) && (
+                          <span className="chip min-h-12 px-5 text-2xl text-ink">Tie · higher rubric score wins</span>
+                        )}
                       </div>
                       <span className="num text-8xl">{visible ? money(t.total) : ''}</span>
                     </div>
@@ -83,7 +89,7 @@ export default function Reveal({
                     </div>
                     {visible && (
                       <p className="mono mt-3 text-3xl text-white/90">
-                        Rubric score <strong>{t.avg_score ?? '–'}/5</strong>
+                        Rubric score <strong>{score1(t.avg_score)}/5</strong>
                         {t.pillar_avgs.honesty != null && (
                           <>
                             {' '}
@@ -126,12 +132,15 @@ export default function Reveal({
                   const best = Math.max(...vals)
                   return (
                     <tr key={p.id} className="border-b border-white/20">
-                      <td className="py-3">{p.label}</td>
+                      <td className="py-3">
+                        {p.label}
+                        {weightOf(p.key) !== 1 && <span className="mono ml-3 text-2xl text-white/60">×{weightOf(p.key)}</span>}
+                      </td>
                       {teams.map((t) => {
                         const v = t.pillar_avgs[p.key]
                         return (
                           <td key={t.id} className={`num py-3 text-right text-5xl ${v != null && v === best ? 'text-orange' : ''}`}>
-                            {v ?? '–'}
+                            {score1(v)}
                           </td>
                         )
                       })}

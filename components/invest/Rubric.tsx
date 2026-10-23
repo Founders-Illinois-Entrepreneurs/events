@@ -1,6 +1,6 @@
 import { checklist } from '@/lib/format'
 import { SCORE_LEVELS, scoreGuide } from '@/lib/rubric'
-import type { Pillar } from '@/lib/types'
+import type { Pillar, Track } from '@/lib/types'
 
 // Rubric pieces shared by the learn page and the table's phone form.
 
@@ -56,7 +56,7 @@ export function Checklist({ text, kind }: { text: string; kind: keyof typeof MAR
 }
 
 // What a 1, 3 and 5 look like for a pillar.
-export function ScoreGuide({ pillar }: { pillar: Pillar }) {
+export function ScoreGuide({ pillar, track = 'venture' }: { pillar: Pillar; track?: Track }) {
   return (
     <ol className="space-y-2.5">
       {[1, 3, 5].map((n) => (
@@ -64,7 +64,7 @@ export function ScoreGuide({ pillar }: { pillar: Pillar }) {
           <ScoreBadge n={n} small />
           <span>
             <span className="mono block text-[0.7rem] font-semibold uppercase tracking-wide">{SCORE_LEVELS[n]}</span>
-            {scoreGuide(pillar, n)}
+            {scoreGuide(pillar, n, track)}
           </span>
         </li>
       ))}

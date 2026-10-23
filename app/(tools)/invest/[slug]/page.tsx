@@ -107,14 +107,15 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     if (event.status === 'setup') {
       return (
         <div className="card card-shadow">
-          <h2 className="display text-4xl">Investing opens after the pitches</h2>
+          <h2 className="display text-4xl">Scoring opens when the pitches start</h2>
           <p className="mt-2 text-ink-2">
-            Watch each R&amp;D team pitch. Your table will split <strong>{money(event.starting_capital)}</strong>{' '}
-            across them, every dollar of it, and explain why. While you wait, read{' '}
+            Your table will score each R&amp;D team right after its pitch, then split{' '}
+            <strong>{money(event.starting_capital)}</strong> across them, every dollar of it, and explain why. While you
+            wait, read{' '}
             <Link className="underline" href={`/invest/${slug}/learn`}>
               what investors look for
             </Link>
-            . This page updates on its own when investing opens.
+            . This page updates on its own when scoring opens.
           </p>
           {presenters.length > 0 && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -131,7 +132,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
                 </ul>
               </div>
               <div>
-                <p className="field-label">Take notes on these during the pitches</p>
+                <p className="field-label">You’ll score each team on these pillars</p>
                 <ol className="list-decimal space-y-0.5 pl-5 text-ink-2">
                   {pillars.map((pl) => (
                     <li key={pl.id}>{pl.label}</li>

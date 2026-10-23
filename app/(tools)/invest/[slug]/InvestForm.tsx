@@ -10,7 +10,6 @@ import {
   SPLIT_STYLES,
   suggestSplit,
   weightedScore,
-  weightLabel,
 } from '@/lib/rubric'
 import { pillarText, TRACK_LABEL } from '@/lib/types'
 import type { Allocation, ClubEvent, InvestorTeam, Pillar, PresenterTeam, RubricScore } from '@/lib/types'
@@ -68,13 +67,14 @@ export default function InvestForm({
   // Raw text of the amount box being typed in (formatted with commas once you leave it).
   const [amountText, setAmountText] = useState<{ id: string; text: string } | null>(null)
   // How strongly the suggested split favors the top-scoring teams (index into SPLIT_STYLES).
-  const [splitStyle, setSplitStyle] = useState(2)
+  const [splitStyle, setSplitStyle] = useState(1)
   const [submitting, startSubmit] = useTransition()
 
   // Latest drafts for the debounced saver, unsaved cards, and in-flight saves to flush before submit.
   const draftsRef = useRef(drafts)
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const inflight = useRef(new Set<Promise<unknown>>())
+  const reloading = useRef(false)
   // Saves that failed (e.g. phone briefly offline). Retried automatically.
   const failedCards = useRef(new Set<string>())
   const failedScores = useRef(new Map<string, number>())
@@ -83,6 +83,14 @@ export default function InvestForm({
     inflight.current.add(p)
     setSaveState('saving')
     p.then((res) => {
+      // "Not found" means the organizer changed the teams or rubric: reload to get the new form.
+      if (res.error && /^Not found/.test(res.error)) {
+        onDone(true)
+        reloading.current = true
+        setError('The organizer updated this event. Reloading…')
+        setTimeout(() => window.location.reload(), 1500)
+        return
+      }
       onDone(!res.error)
       if (res.error) setError(`Couldn't save: ${res.error}`)
     })
@@ -95,7 +103,7 @@ export default function InvestForm({
         if (inflight.current.size === 0) {
           const failing = failedCards.current.size + failedScores.current.size > 0
           setSaveState(failing ? 'error' : 'saved')
-          if (!failing) setError(undefined)
+          if (!failing && !reloading.current) setError(undefined)
         }
       })
     return p
@@ -213,7 +221,8 @@ export default function InvestForm({
   const weighted = pillars.some((pl) => pl.weight !== 1)
   const teamScores = presenters.map((p) => weightedScore(pillars, (pillarId) => scores[`${p.id}:${pillarId}`]))
   const suggested = suggestSplit(teamScores, capital, splitStyle)
-  const anyScored = teamScores.some((s) => s != null)
+  // Suggestions only once every team is fully scored, so an unscored team never gets $0 by accident.
+  const allScored = presenters.every((p) => pillars.every((pl) => scores[`${p.id}:${pl.id}`]))
 
   function applySuggested() {
     presenters.forEach((p, i) => update(p.id, { amount: suggested[i] }))
@@ -310,9 +319,10 @@ export default function InvestForm({
                           <summary className="cursor-pointer">
                             <span className="font-semibold">{pl.label}</span>
                             {weighted && pl.weight !== 1 && (
-                              <span className="mono ml-2 text-xs text-ink-3">{weightLabel(pl.weight)}</span>
+                              <span className="mono ml-2 whitespace-nowrap text-xs text-ink-3">{pl.weight}×</span>
                             )}
                             <span className="block text-sm text-ink-2">{text.prompt}</span>
+                            {pl.note.trim() && <span className="mt-1 block text-xs italic text-ink-3">{pl.note}</span>}
                           </summary>
                           <div className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
                             {guided ? (
@@ -324,7 +334,7 @@ export default function InvestForm({
                                 <div className="space-y-3">
                                   <div>
                                     <span className="field-label">Score guide</span>
-                                    <ScoreGuide pillar={pl} />
+                                    <ScoreGuide pillar={pl} track={p.track} />
                                   </div>
                                   {text.red.trim() && (
                                     <div>
@@ -368,7 +378,7 @@ export default function InvestForm({
                         <p className="flex items-start gap-2 text-xs text-ink-2">
                           <ScoreBadge n={v} small />
                           <span>
-                            <strong className="text-ink">{SCORE_LEVELS[v]}.</strong> {scoreGuide(pl, v)}
+                            <strong className="text-ink">{SCORE_LEVELS[v]}.</strong> {scoreGuide(pl, v, p.track)}
                           </span>
                         </p>
                       )}
@@ -382,7 +392,7 @@ export default function InvestForm({
               <div>
                 <label className="field-label" htmlFor={`amt-${p.id}`}>
                   Investment · {pct}% of capital
-                  {rubric != null && <span className="text-ink-3"> · suggested {money(suggested[i])}</span>}
+                  {allScored && <span className="text-ink-3"> · suggested {money(suggested[i])}</span>}
                 </label>
                 <input
                   type="range"
@@ -522,18 +532,20 @@ export default function InvestForm({
                     )}
                   </td>
                   <td className="mono text-right">{teamScores[i] == null ? '–' : teamScores[i]!.toFixed(1)}</td>
-                  <td className="mono text-right">{teamScores[i] == null ? '–' : money(suggested[i])}</td>
+                  <td className="mono text-right">{!allScored || teamScores[i] == null ? '–' : money(suggested[i])}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="btn btn-orange" disabled={!anyScored} onClick={applySuggested}>
+          <button type="button" className="btn btn-orange" disabled={!allScored} onClick={applySuggested}>
             Use suggested amounts
           </button>
           <span className="text-xs text-ink-3">
-            {anyScored ? 'Replaces every amount above. You can still change them after.' : 'Score a team to see a suggestion.'}
+            {allScored
+              ? 'Replaces every amount above. Your scores don’t know everything: talk it through, then adjust.'
+              : 'Finish scoring every pillar for every team to get a suggestion.'}
           </span>
         </div>
       </section>
@@ -550,7 +562,10 @@ export default function InvestForm({
               className={`mono whitespace-nowrap text-xs ${saveState === 'error' ? 'font-bold text-red' : 'text-ink-3'}`}
               aria-live="polite"
             >
-              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : saveState === 'error' ? '⚠ Not saved' : ''}
+              <span className="sm:hidden">{saveState === 'saving' ? '…' : saveState === 'saved' ? '✓' : saveState === 'error' ? '⚠' : ''}</span>
+              <span className="hidden sm:inline">
+                {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : saveState === 'error' ? '⚠ Not saved' : ''}
+              </span>
             </span>
           </div>
           <button

@@ -1,4 +1,4 @@
-import type { Pillar } from '@/lib/types'
+import type { Pillar, Track } from '@/lib/types'
 
 // Scoring rules shared by the learn page, the table's phone form and the database
 // (invest_results weights pillar scores the same way).
@@ -16,13 +16,19 @@ export const SCORE_MEANING = [
 // Older events only have "strong looks like" and red flags; newer ones have a 1/3/5 guide.
 export const hasScoreGuide = (p: Pillar) => p.weak_signals.trim() !== '' || p.partial_signals.trim() !== ''
 
-// What a score means for this pillar. 2 and 4 sit between the written anchors.
-export function scoreGuide(p: Pillar, n: number) {
-  if (n === 1) return p.weak_signals
-  if (n === 3) return p.partial_signals
-  if (n === 5) return p.strong_signals
+// Partner-track teams use their own guide when the pillar has one.
+const partnerGuide = (p: Pillar, track: Track) => track === 'partner' && p.partner_weak_signals.trim() !== ''
+
+// What a score means for this pillar (and track). 2 and 4 sit between the written anchors.
+export function scoreGuide(p: Pillar, n: number, track: Track = 'venture') {
+  const partner = partnerGuide(p, track)
+  if (n === 1) return partner ? p.partner_weak_signals : p.weak_signals
+  if (n === 3) return partner ? p.partner_partial_signals : p.partial_signals
+  if (n === 5) return partner ? p.partner_strong_signals || p.strong_signals : p.strong_signals
   return n === 2 ? 'Has a little of what a 3 needs, not all of it.' : 'Most of what a 5 needs, with small gaps.'
 }
+
+export const hasPartnerGuide = (p: Pillar) => p.partner_weak_signals.trim() !== ''
 
 export function weightLabel(w: number) {
   if (w === 1) return 'Counts once'

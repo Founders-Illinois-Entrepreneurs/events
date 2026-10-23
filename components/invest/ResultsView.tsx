@@ -1,4 +1,4 @@
-import { money } from '@/lib/format'
+import { money, score1 } from '@/lib/format'
 import type { Results } from '@/lib/types'
 
 // Ranked totals, rubric averages, and the feedback each R&D team received.
@@ -24,10 +24,10 @@ export default function ResultsView({ results }: { results: Results }) {
               <div className="bar-fill" style={{ width: `${(t.total / max) * 100}%` }} />
             </div>
             <div className="mono mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-2">
-              <span>Rubric score: {t.avg_score ?? '–'}/5</span>
+              <span>Rubric score: {score1(t.avg_score)}/5</span>
               {honesty && (
                 <span className="font-bold text-blue">
-                  Honesty &amp; Risks: {t.pillar_avgs[honesty.key] ?? '–'}/5
+                  Honesty &amp; Risks: {score1(t.pillar_avgs[honesty.key])}/5
                 </span>
               )}
             </div>
@@ -81,7 +81,7 @@ export default function ResultsView({ results }: { results: Results }) {
                   <td className="font-semibold">{p.label}</td>
                   {teams.map((t) => (
                     <td key={t.id} className="mono text-right">
-                      {t.pillar_avgs[p.key] ?? '–'}
+                      {score1(t.pillar_avgs[p.key])}
                     </td>
                   ))}
                 </tr>

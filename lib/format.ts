@@ -11,10 +11,37 @@ export function shortMoney(n: number) {
 // Rubric text as checklist items: one per line, or one per sentence when written as a paragraph.
 export function checklist(text: string) {
   const lines = text.split('\n').map((s) => s.trim()).filter(Boolean)
-  const items = lines.length > 1 ? lines : text.split(/(?<=[.!?]["”]?)\s+(?=["“A-Z])/)
+  // Sentence ends need two letters/digits before the stop, so "e.g." and "U.S." don't split.
+  // (No regex lookbehind: older iPhones can't parse it.)
+  const items =
+    lines.length > 1 ? lines : text.replace(/([a-z0-9)]{2}[.!?]["”]?)\s+(?=["“A-Z])/gi, '$1\n').split('\n')
   return items
-    .map((s) => s.trim().replace(/^[-•*]\s*/, '').replace(/(?<!\.)\.$/, ''))
+    .map((s) => s.trim().replace(/^[-•*]\s*/, '').replace(/([^.])\.$/, '$1'))
     .filter(Boolean)
+}
+
+// Times are rendered on the server (UTC on Vercel), so pin them to the club's time zone.
+function zone() {
+  const tz = process.env.TIME_ZONE || 'America/Chicago'
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    return tz
+  } catch {
+    return 'America/Chicago'
+  }
+}
+
+export function timeOfDay(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: zone() })
+}
+
+export function dateOnly(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { timeZone: zone() })
+}
+
+// A rubric score with one decimal ("4.0"), or "–" when there is none.
+export function score1(n: number | null | undefined) {
+  return n == null || Number.isNaN(Number(n)) ? '–' : Number(n).toFixed(1)
 }
 
 export function slugify(s: string) {

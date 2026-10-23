@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAdmin } from '@/lib/auth'
 import { one } from '@/lib/db'
-import { money } from '@/lib/format'
+import { money, score1 } from '@/lib/format'
 import type { Results } from '@/lib/types'
 import { FeedbackList } from '@/components/invest/ResultsView'
 import PrintButton from './PrintButton'
@@ -44,7 +44,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
             <p className="eyebrow">{r.event.name} · feedback for</p>
             <h2 className="display text-5xl">{t.name}</h2>
             <p className="mono text-sm">
-              Rank #{t.rank} of {r.teams.length} · {money(t.total)} invested · rubric score {t.avg_score ?? '–'}/5
+              Rank #{t.rank} of {r.teams.length} · {money(t.total)} invested · rubric score {score1(t.avg_score)}/5
             </p>
           </div>
           <div className="card overflow-x-auto p-0">
@@ -53,7 +53,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
                 {r.pillars.map((p) => (
                   <tr key={p.id}>
                     <td className="font-semibold">{p.label}</td>
-                    <td className="mono w-24 text-right">{t.pillar_avgs[p.key] ?? '–'}/5</td>
+                    <td className="mono w-24 text-right">{score1(t.pillar_avgs[p.key])}/5</td>
                   </tr>
                 ))}
               </tbody>

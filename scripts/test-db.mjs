@@ -86,6 +86,13 @@ await throwsLike(() => q(`update invest_presenter_teams set track = 'other' wher
 const [{ invest_create_event: freshId }] = await q(`select invest_create_event('Fresh', 'fresh-one')`)
 const fresh = await q(`select count(*)::int as n from invest_rubric_pillars where event_id = $1 and partner_prompt <> ''`, [freshId])
 ok(fresh[0].n === 6, 'new events get partner wording too')
+const guides = await q(`select count(*)::int as n from invest_rubric_pillars
+  where event_id = $1 and partner_weak_signals <> '' and partner_partial_signals <> '' and partner_strong_signals <> '' and partner_red_flags <> ''`, [freshId])
+ok(guides[0].n === 6, 'new events get a full partner score guide (1/3/5 + red flags)')
+const clonedGuides = await q(`select count(*)::int as n from invest_rubric_pillars where event_id = $1 and partner_weak_signals <> ''`, [clonedId])
+ok(clonedGuides[0].n === 6, 'seeded events have partner score guides')
+const [{ invest_create_event: guideClone }] = await q(`select invest_create_event('Guide clone', 'guide-clone', null, $1)`, [freshId])
+ok((await q(`select count(*)::int as n from invest_rubric_pillars where event_id = $1 and partner_partial_signals <> ''`, [guideClone]))[0].n === 6, 'cloning copies partner score guides')
 
 console.log('\nRubric')
 const freshKeys = (await q('select key from invest_rubric_pillars where event_id = $1 order by sort_order', [freshId])).map((r) => r.key)

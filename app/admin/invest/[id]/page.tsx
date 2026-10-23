@@ -3,7 +3,8 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { requireAdmin } from '@/lib/auth'
 import { one, query } from '@/lib/db'
-import { money } from '@/lib/format'
+import { money, timeOfDay } from '@/lib/format'
+import { hasScoreGuide } from '@/lib/rubric'
 import { STATUS_LABEL, TRACK_LABEL } from '@/lib/types'
 import type {
   Allocation,
@@ -25,6 +26,7 @@ import {
   deleteEvent,
   deleteInvestorTeam,
   deletePillar,
+  resetRubric,
   deletePresenter,
   moveMember,
   savePillar,
@@ -44,13 +46,13 @@ const PHASES: { status: EventStatus; label: string; help: string; confirm?: stri
   {
     status: 'open',
     label: 'Open investing',
-    help: 'Members fill in and submit portfolios.',
-    confirm: 'Open investing now? Members will see the form immediately.',
+    help: 'Tables score each team as it pitches, then split the money and submit.',
+    confirm: 'Open investing now? Do this as the first pitch starts, so tables can score as they go.',
   },
   {
     status: 'closed',
     label: 'Close investing',
-    help: 'No more edits or submissions. Unsubmitted teams don’t count.',
+    help: 'No more edits. Complete portfolios are submitted automatically; incomplete ones don’t count.',
     confirm:
       'Close investing? Tables with a complete portfolio are submitted automatically. Incomplete ones won’t count.',
   },
@@ -238,7 +240,7 @@ export default async function AdminEventPage({
                       {sub ? (
                         <span className="chip chip-green">
                           {sub.submitted_by ? 'Submitted' : 'Auto-submitted'}{' '}
-                          {new Date(sub.submitted_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          {timeOfDay(sub.submitted_at)}
                         </span>
                       ) : (
                         <span className="chip chip-muted">Working</span>
@@ -392,6 +394,22 @@ export default async function AdminEventPage({
             team on each one. A team&apos;s rubric score is the weighted average of its pillar scores: it breaks ties and
             suggests how each table splits its money. Put each checklist item and red flag on its own line.
           </p>
+          {scores.length === 0 && event.status === 'setup' && (
+            <form action={resetRubric} className="mt-3 flex flex-wrap items-center gap-3">
+              <input type="hidden" name="event_id" value={id} />
+              <ConfirmButton
+                message="Replace this event's rubric with the latest default (checklists, 1/3/5 score guides, weights)? Any edits you made to these pillars are lost."
+                className="btn btn-ghost btn-sm"
+              >
+                Use the latest default rubric
+              </ConfirmButton>
+              {!pillars.some((pl) => hasScoreGuide(pl)) && (
+                <span className="text-xs font-semibold text-orange-ink">
+                  This event uses the older rubric (no score guides or weights).
+                </span>
+              )}
+            </form>
+          )}
         </div>
         <div className="space-y-3">
           {pillars.map((p) => (
@@ -548,11 +566,21 @@ function PillarForm({ eventId, p }: { eventId: string; p?: Pillar }) {
               <label className="field-label">Listen for · one per line</label>
               <textarea name="partner_listen_for" className="input" rows={3} defaultValue={p?.partner_listen_for} />
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-3">
               <div>
-                <label className="field-label text-green">Strong looks like</label>
+                <label className="field-label">Score guide · 1</label>
+                <textarea name="partner_weak_signals" className="input" defaultValue={p?.partner_weak_signals} />
+              </div>
+              <div>
+                <label className="field-label">Score guide · 3</label>
+                <textarea name="partner_partial_signals" className="input" defaultValue={p?.partner_partial_signals} />
+              </div>
+              <div>
+                <label className="field-label text-green">Score guide · 5 / strong</label>
                 <textarea name="partner_strong_signals" className="input" defaultValue={p?.partner_strong_signals} />
               </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className="field-label text-red">Red flags</label>
                 <textarea name="partner_red_flags" className="input" defaultValue={p?.partner_red_flags} />

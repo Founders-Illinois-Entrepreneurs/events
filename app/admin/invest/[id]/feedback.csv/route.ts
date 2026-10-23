@@ -17,13 +17,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!row) return new NextResponse('Not found', { status: 404 })
   const r = row.r
 
-  const header = ['rd_team', 'track', 'rank', 'team_total', 'investor', 'amount', 'why', 'invest_more_if', 'starred', 'auto_submitted', ...r.pillars.map((p) => `avg_${p.key}`)]
+  const header = ['rd_team', 'track', 'rank', 'team_total', 'rubric_score', 'investor', 'amount', 'why', 'invest_more_if', 'starred', 'auto_submitted', ...r.pillars.map((p) => `avg_${p.key}`)]
   const rows = r.teams.flatMap((t) =>
     t.feedback.map((f) => [
       t.name,
       t.track,
       t.rank,
       t.total,
+      t.avg_score ?? '',
       f.investor ?? '',
       f.amount,
       f.rationale,

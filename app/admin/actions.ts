@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { adminSignIn, adminSignOut, requireAdmin } from '@/lib/auth'
-import { errorMessage, one, query } from '@/lib/db'
+import { errorMessage, one, pool, query } from '@/lib/db'
 import { slugify } from '@/lib/format'
 import type { EventStatus } from '@/lib/types'
 
@@ -34,10 +34,15 @@ function int(fd: FormData, key: string, fallback = 0) {
 function lines(fd: FormData, key: string) {
   return str(fd, key).replace(/\r\n?/g, '\n')
 }
-// Pillar weight: 0.5 to 5 in steps of 0.5. Blank or unreadable means 1.
+// Pillar weight: 0.5 to 5 in steps of 0.5. Blank means 1; anything else is rejected.
 function weight(fd: FormData) {
-  const n = parseFloat(str(fd, 'weight'))
-  return Number.isFinite(n) ? Math.min(5, Math.max(0.5, Math.round(n * 2) / 2)) : 1
+  const raw = str(fd, 'weight')
+  if (!raw) return 1
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0.5 || n > 5 || Math.round(n * 2) !== n * 2) {
+    throw new Error('Weight must be between 0.5 and 5, in steps of 0.5 (for example 1, 1.5 or 0.5).')
+  }
+  return n
 }
 
 async function fail(message: string): Promise<never> {
@@ -257,6 +262,13 @@ export async function savePillar(fd: FormData) {
   const eventId = str(fd, 'event_id')
   const id = str(fd, 'id')
   const label = str(fd, 'label')
+  await requireAdmin()
+  let w = 1
+  try {
+    w = weight(fd)
+  } catch (e) {
+    return fail(errorMessage(e))
+  }
   const values = [
     str(fd, 'prompt'),
     lines(fd, 'strong_signals'),
@@ -269,8 +281,10 @@ export async function savePillar(fd: FormData) {
     lines(fd, 'weak_signals'),
     lines(fd, 'partial_signals'),
     str(fd, 'note'),
-    weight(fd),
+    w,
     lines(fd, 'partner_listen_for'),
+    lines(fd, 'partner_weak_signals'),
+    lines(fd, 'partner_partial_signals'),
   ]
   await admin(
     () =>
@@ -280,7 +294,7 @@ export async function savePillar(fd: FormData) {
              set label = $2, prompt = $3, strong_signals = $4, red_flags = $5, sort_order = $6,
                  partner_prompt = $7, partner_strong_signals = $8, partner_red_flags = $9,
                  listen_for = $10, weak_signals = $11, partial_signals = $12, note = $13, weight = $14,
-                 partner_listen_for = $15
+                 partner_listen_for = $15, partner_weak_signals = $16, partner_partial_signals = $17
              where id = $1`,
             [id, label, ...values],
           )
@@ -288,12 +302,40 @@ export async function savePillar(fd: FormData) {
             `insert into invest_rubric_pillars (event_id, key, label, prompt, strong_signals, red_flags, sort_order,
                                                 partner_prompt, partner_strong_signals, partner_red_flags,
                                                 listen_for, weak_signals, partial_signals, note, weight,
-                                                partner_listen_for)
-             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+                                                partner_listen_for, partner_weak_signals, partner_partial_signals)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
             [eventId, slugify(label) || `pillar-${Date.now()}`, label, ...values],
           ),
     eventId,
   )
+}
+
+// Replace an event's rubric with the current default (for events created before it changed).
+// Only allowed in Setup with no scores, so no answers can be lost.
+export async function resetRubric(fd: FormData) {
+  const eventId = str(fd, 'event_id')
+  await admin(async () => {
+    const client = await pool.connect()
+    try {
+      await client.query('begin')
+      // Locking the event row blocks a phase change until we're done; in Setup no table can score.
+      const { rows } = await client.query(
+        `select e.status, exists (select 1 from invest_rubric_scores where event_id = e.id) as scored
+         from events e where e.id = $1 for update`,
+        [eventId],
+      )
+      if (rows[0]?.status !== 'setup') throw new Error('The rubric can only be replaced while the event is in Setup.')
+      if (rows[0]?.scored) throw new Error('Tables have already started scoring, so the rubric can’t be replaced.')
+      await client.query('delete from invest_rubric_pillars where event_id = $1', [eventId])
+      await client.query('select invest_insert_default_pillars($1)', [eventId])
+      await client.query('commit')
+    } catch (e) {
+      await client.query('rollback').catch(() => {})
+      throw e
+    } finally {
+      client.release()
+    }
+  }, eventId)
 }
 
 export async function deletePillar(fd: FormData) {

@@ -30,7 +30,7 @@ Every event moves through four phases, controlled from the organizer page:
 | Phase | What members can do |
 | --- | --- |
 | **Setup** | Join a table, read "What investors look for". |
-| **Open investing** | Fill in the table's portfolio together on the one phone. It autosaves. Then submit. |
+| **Open investing** | Score each team on the rubric after its pitch, then split the money (the scores suggest a split), explain each amount, and submit. It autosaves. |
 | **Closed** | Nothing. Tables that didn't submit don't count. |
 | **Revealed** | See results, rubric averages, and all feedback. |
 
@@ -64,10 +64,11 @@ If a table signs in on the wrong phone, or a phone dies, press **Free table** in
 
 1. Put the site's address on the projector. The home page opens the current event.
 2. Each table picks one phone, types everyone's names and signs in while the event is still in **Setup**.
-3. Run the pitches. Suggested format: **7 minutes of pitch and 5 of Q&A per team**, with a visible timer.
-4. Click **Open investing**. Give tables 10–15 minutes and watch the **live tracker**.
-5. Click **Close investing**. Optionally ★ the best-reasoned portfolio.
-6. Click **Reveal results**, open **Projector reveal**, and press → to reveal teams from last place to first.
+3. Click **Open investing** as the first pitch starts, so tables can score each team on the rubric right after its pitch.
+4. Run the pitches. Suggested format: **7 minutes of pitch and 5 of Q&A per team**, with a visible timer.
+5. After the last pitch, give tables about 10 minutes to use **Split the money**, adjust, write their reasons and submit. Watch the **live tracker**.
+6. Click **Close investing**. Optionally ★ the best-reasoned portfolio.
+7. Open **Projector reveal** and press → to reveal teams from last place to first, then the rubric slide. Click **Reveal results** afterwards: phones show results within seconds.
 
 **After**
 

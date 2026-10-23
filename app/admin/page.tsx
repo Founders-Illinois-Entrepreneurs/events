@@ -4,7 +4,7 @@ import { query } from '@/lib/db'
 import type { ClubEvent } from '@/lib/types'
 import StatusChip from '@/components/StatusChip'
 import ErrorBanner from '@/components/ErrorBanner'
-import { money } from '@/lib/format'
+import { dateOnly, money } from '@/lib/format'
 import { createEvent } from './actions'
 
 export const metadata = { title: 'Admin' }
@@ -64,7 +64,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
               <option value="">Fresh (default rubric)</option>
               {all.map((e) => (
                 <option key={e.id} value={e.id}>
-                  Copy setup from: {e.name}
+                  Copy setup from: {e.name} ({e.slug}, {dateOnly(e.created_at)})
                 </option>
               ))}
             </select>
@@ -92,7 +92,7 @@ function EventRow({ e }: { e: ClubEvent }) {
       <div>
         <h3 className="display text-3xl">{e.name}</h3>
         <p className="mono text-xs text-ink-3">
-          /invest/{e.slug} · {money(e.starting_capital)} · {new Date(e.created_at).toLocaleDateString()}
+          /invest/{e.slug} · {money(e.starting_capital)} · {dateOnly(e.created_at)}
         </p>
       </div>
       <StatusChip status={e.status} />

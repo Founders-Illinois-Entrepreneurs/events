@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getEventBySlug, getPillars, getPresenters } from '@/lib/invest'
 import { money } from '@/lib/format'
-import { hasScoreGuide, SCORE_LEVELS, SCORE_MEANING, weightLabel } from '@/lib/rubric'
+import { hasScoreGuide, SCORE_LEVELS, SCORE_MEANING, weightLabel, hasPartnerGuide } from '@/lib/rubric'
 import type { Pillar } from '@/lib/types'
 import { Checklist, ScoreBadge, ScoreGuide } from '@/components/invest/Rubric'
 
@@ -80,7 +80,8 @@ export default async function LearnPage({ params }: { params: Promise<{ slug: st
                   .filter((p) => p.weight !== 1)
                   .map((p) => `${p.label} ${weightLabel(p.weight).toLowerCase()}`)
                   .join('. ')}
-                . Every other pillar counts once.
+                . Every other pillar counts once. At the midpoint, what a team has learned from real customers matters
+                most, and pricing can still be rough.
               </p>
             )}
           </section>
@@ -90,7 +91,7 @@ export default async function LearnPage({ params }: { params: Promise<{ slug: st
       <div className={guided || hasPartner ? 'space-y-5' : 'grid gap-5 md:grid-cols-2'}>
         {pillars.map((p, i) => (
           <Fragment key={p.id}>
-            {p.key === 'product' && pillars[i - 1]?.key === 'solution' && <SolutionVsProduct />}
+            {p.key === 'solution' && pillars[i + 1]?.key === 'product' && <SolutionVsProduct />}
             <PillarCard pillar={p} index={i} weighted={weighted} partnerNames={hasPartner ? partnerNames : null} />
           </Fragment>
         ))}
@@ -177,7 +178,10 @@ function PillarCard({
             <div className="space-y-3 p-4 text-sm">
               <p className="text-base font-semibold">{p.partner_prompt}</p>
               {p.partner_listen_for.trim() ? (
-                <Checklist text={p.partner_listen_for} kind="partner" />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Checklist text={p.partner_listen_for} kind="partner" />
+                  {hasPartnerGuide(p) && <ScoreGuide pillar={p} track="partner" />}
+                </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Checklist text={p.partner_strong_signals || p.strong_signals} kind="strong" />

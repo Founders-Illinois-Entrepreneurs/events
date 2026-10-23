@@ -36,7 +36,9 @@ export function errorMessage(e: unknown) {
   if (/invalid input syntax|out of range|violates check constraint|violates not-null/.test(msg)) {
     return 'That value isn’t allowed. Please check it and try again.'
   }
-  // Messages we raise ourselves in SQL are written for people; anything else stays generic.
-  if (/relation|column|syntax error|connect|timeout|ECONN/i.test(msg)) return 'Something went wrong. Please try again.'
-  return msg
+  // Messages we raise ourselves (SQL `raise exception`, code P0001, or app errors) are written
+  // for people; any other database error stays generic.
+  const code = (e as { code?: string })?.code
+  if (code === 'P0001' || !code) return msg
+  return 'Something went wrong. Please try again.'
 }
