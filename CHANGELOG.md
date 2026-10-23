@@ -12,6 +12,7 @@ Each event release is tagged (e.g. `v2026-fall-midpoint`). See the README sectio
 - Rubric v2 for new events: Problem, Customer & Market, Solution, Product, Business Model, Traction & Validation, Pitch Execution. Each pillar has a "listen for" checklist, a 1/3/5 score guide, red flags, startup-partner wording and a weight (Traction 1.5×, Business Model 0.5×). Existing events keep their rubric.
 - Rubric scores are weighted averages; they break ties and drive a suggested split on each table's phone ("Split the money", with a slider from even to all-in).
 - Startup-partner teams get their own 1/3/5 score guide and red flags (migration 0007).
+- "Reset event" organizer button: a fresh restart (no sign-ins, answers or submissions; default rubric; back to Setup) that keeps the event, its R&D teams and tables (migration 0008).
 - "Use the latest default rubric" organizer button, to move an older event onto rubric v2 (Setup only, before any scores).
 - Flow: open investing as the first pitch starts so tables score each team right after its pitch; split the money after the last pitch.
 - Rebuilt "What investors look for" page: how-it-works steps, the 1–5 scale, checklists, a Solution vs. Product callout, and a separate startup-partner section in each pillar.

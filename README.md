@@ -75,6 +75,8 @@ If a table signs in on the wrong phone, or a phone dies, press **Free table** in
 1. Open the **Feedback report**, then print or save a PDF for each R&D team, or download the CSV.
 2. Archive the event. It stays in history.
 
+**Practice run or a mistake?** Settings → **Reset event** wipes every sign-in, answer, score and submission, restores the default rubric and goes back to Setup. The event's name, link, capital, R&D teams and tables are kept. Type the event's slug to confirm.
+
 ## Tech stack
 
 - [Next.js](https://nextjs.org) (App Router, TypeScript) + Tailwind CSS.

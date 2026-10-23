@@ -24,6 +24,7 @@ import {
   addInvestorTeams,
   addPresenter,
   deleteEvent,
+  resetEvent,
   deleteInvestorTeam,
   deletePillar,
   resetRubric,
@@ -455,6 +456,25 @@ export default async function AdminEventPage({
             Archived (hidden from the home page, kept for history)
           </label>
           <ConfirmButton className="btn btn-primary">Save settings</ConfirmButton>
+        </form>
+
+        <form action={resetEvent} className="card space-y-4 border-orange-ink">
+          <h2 className="display text-3xl text-orange-ink">Reset event</h2>
+          <p className="text-sm text-ink-2">
+            A fresh restart, e.g. after a practice run. Signs every phone out and deletes all answers, scores, submissions
+            and stars, restores the default rubric, and goes back to Setup. Keeps the name, link, capital, R&amp;D teams
+            and tables.
+          </p>
+          <input type="hidden" name="id" value={id} />
+          <div>
+            <label className="field-label">
+              Type the slug to confirm: <span className="mono normal-case">{event.slug}</span>
+            </label>
+            <input name="confirm" className="input mono" autoComplete="off" />
+          </div>
+          <ConfirmButton message="Reset this event? Everything tables entered is deleted. This can't be undone." className="btn btn-danger">
+            Reset to a fresh start
+          </ConfirmButton>
         </form>
 
         <form action={deleteEvent} className="card space-y-4 border-red">

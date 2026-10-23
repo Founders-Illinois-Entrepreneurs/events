@@ -140,6 +140,17 @@ export async function setStatus(fd: FormData) {
   )
 }
 
+// Fresh restart: removes every sign-in, answer, score and submission, restores the
+// default rubric and goes back to Setup. Keeps the event, its R&D teams and tables.
+export async function resetEvent(fd: FormData) {
+  const id = str(fd, 'id')
+  await admin(async () => {
+    const ev = await one<{ slug: string }>('select slug from events where id = $1', [id])
+    if (!ev || str(fd, 'confirm').toLowerCase() !== ev.slug) throw new Error('Type the event slug exactly to reset it.')
+    await query('select invest_reset_event($1)', [id])
+  }, id)
+}
+
 export async function deleteEvent(fd: FormData) {
   const id = str(fd, 'id')
   await admin(async () => {

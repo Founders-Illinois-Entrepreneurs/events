@@ -232,5 +232,31 @@ const wByName = Object.fromEntries(wr.teams.map((t) => [t.name, t]))
 ok(wByName.W1.avg_score === 1.86 && wByName.W2.avg_score === 1.29, 'rubric scores are weighted averages')
 ok(wByName.W1.rank === 1 && wByName.W2.rank === 2, 'ties are broken by the weighted rubric score')
 
+console.log('\nReset event')
+await q(`update invest_rubric_pillars set label = 'Edited' where event_id = $1 and sort_order = 1`, [event.id])
+const keepTeams = (await q('select count(*)::int n from invest_presenter_teams where event_id = $1', [event.id]))[0].n
+const keepTables = (await q('select count(*)::int n from invest_investor_teams where event_id = $1', [event.id]))[0].n
+const otherMember = await addMember('Elsewhere')
+await q('select invest_join_team($1, $2)', [otherMember.id, (await q('select id from invest_investor_teams where event_id = $1 limit 1', [clonedId]))[0].id])
+await q('select invest_reset_event($1)', [event.id])
+const [after] = await q(`select status, reveal_names,
+  (select count(*)::int from invest_submissions where event_id = $1) subs,
+  (select count(*)::int from invest_allocations where event_id = $1) allocs,
+  (select count(*)::int from invest_rubric_scores where event_id = $1) scores,
+  (select count(*)::int from invest_team_members where event_id = $1) signins,
+  (select count(*)::int from invest_presenter_teams where event_id = $1) teams,
+  (select count(*)::int from invest_investor_teams where event_id = $1) tables,
+  (select count(*)::int from invest_rubric_pillars where event_id = $1 and label = 'Edited') edited,
+  (select count(*)::int from invest_rubric_pillars where event_id = $1 and weak_signals <> '') guided
+  from events where id = $1`, [event.id])
+ok(after.status === 'setup' && after.reveal_names === false, 'reset puts the event back in Setup with names hidden')
+ok(after.subs + after.allocs + after.scores + after.signins === 0, 'reset removes every sign-in, answer, score and submission')
+ok(after.teams === keepTeams && after.tables === keepTables, 'reset keeps the R&D teams and tables')
+ok(after.edited === 0 && after.guided === 7, 'reset restores the default rubric')
+ok((await q(`select count(*)::int n from members where name in ('Alice', 'Bob', 'Carol')`))[0].n === 0, "reset forgets this event's phones")
+ok((await q(`select count(*)::int n from members where id = $1`, [otherMember.id]))[0].n === 1, 'reset keeps phones signed in to other events')
+await q('select invest_join_team($1, $2)', [alice.id, t1.id]).then(() => ok(false, 'old phone cookie no longer works'), () => ok(true, 'old phone cookie no longer works'))
+await throwsLike(() => q('select invest_reset_event($1)', ['00000000-0000-0000-0000-000000000000']), /not found/, 'reset of a missing event is refused')
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 process.exit(failed ? 1 : 0)
