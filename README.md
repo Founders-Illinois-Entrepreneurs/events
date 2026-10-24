@@ -17,7 +17,7 @@ R&D teams can be on one of two **tracks**:
 
 Both tracks are scored on the same pillars, so results stay comparable. Partner teams get each question reworded for their situation.
 
-> Forked from [wgarrett707/investment-game](https://github.com/wgarrett707/investment-game) with the author's permission. Thank you!
+> Forked from [wgarrett707/investment-game](https://github.com/wgarrett707/investment-game)
 
 ---
 
