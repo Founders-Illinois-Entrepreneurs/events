@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Bebas_Neue, Montserrat } from 'next/font/google'
+import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 
 const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
@@ -20,9 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="container-page pb-10 pt-6 text-sm text-ink-3 no-print">
           <span className="mono">Founders · Illinois Entrepreneurs</span>
           {' · '}
-          <a className="underline" href="/admin">
+          <Link className="underline" href="/admin">
             Organizers
-          </a>
+          </Link>
           {' · '}
           <a className="underline" href="https://github.com/amey-gupt/founders-tools">Source on GitHub</a>
         </footer>

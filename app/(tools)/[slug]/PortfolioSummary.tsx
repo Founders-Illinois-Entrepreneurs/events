@@ -25,7 +25,7 @@ export default function PortfolioSummary({
       <div className="alert alert-ok">
         Portfolio submitted {timeOfDay(submittedAt)}.{' '}
         {revealed ? (
-          <Link className="underline" href={`/invest/${slug}/results`}>
+          <Link className="underline" href={`/${slug}/results`}>
             See the results →
           </Link>
         ) : (

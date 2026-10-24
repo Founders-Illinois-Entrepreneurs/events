@@ -89,7 +89,7 @@ The whole site needs **two settings**: `DATABASE_URL` and `ADMIN_PASSWORD`.
 ```
 app/
   page.tsx                    Home: opens the current event
-  (tools)/invest/[slug]/      Member pages: join, invest, learn, results
+  (tools)/[slug]/             Member pages: join, invest, learn, results
   admin/                      Organizer sign-in and events
   admin/invest/[id]/          Run one event: phases, tracker, teams, rubric, reveal, feedback
 components/                   Shared UI (header, status chips, auto-refresh)

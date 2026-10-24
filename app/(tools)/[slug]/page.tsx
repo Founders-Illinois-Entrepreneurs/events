@@ -57,11 +57,11 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/invest/${slug}/learn`} className="btn btn-ghost">
+          <Link href={`/${slug}/learn`} className="btn btn-ghost">
             What investors look for
           </Link>
           {event.status === 'revealed' && (
-            <Link href={`/invest/${slug}/results`} className="btn btn-orange">
+            <Link href={`/${slug}/results`} className="btn btn-orange">
               See results →
             </Link>
           )}
@@ -112,7 +112,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
             Your table will score each R&amp;D team right after its pitch, then split{' '}
             <strong>{money(event.starting_capital)}</strong> across them, every dollar of it, and explain why. While you
             wait, read{' '}
-            <Link className="underline" href={`/invest/${slug}/learn`}>
+            <Link className="underline" href={`/${slug}/learn`}>
               what investors look for
             </Link>
             . This page updates on its own when scoring opens.

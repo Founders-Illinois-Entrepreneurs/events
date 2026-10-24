@@ -6,7 +6,7 @@ import { getCurrentEvents } from '@/lib/invest'
 // The front page is the current event. With nothing running, a short note.
 export default async function Home() {
   const [current] = await getCurrentEvents()
-  if (current) redirect(`/invest/${current.slug}`)
+  if (current) redirect(`/${current.slug}`)
 
   return (
     <div className="mx-auto max-w-xl py-16 text-center">

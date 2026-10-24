@@ -131,7 +131,7 @@ export default async function AdminEventPage({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={`/invest/${event.slug}`} className="btn btn-ghost btn-sm">
+            <Link href={`/${event.slug}`} className="btn btn-ghost btn-sm">
               Member view
             </Link>
             <Link href={`/admin/invest/${id}/present`} className="btn btn-ghost btn-sm">
@@ -143,7 +143,7 @@ export default async function AdminEventPage({
           </div>
         </div>
         <p className="mono text-sm text-ink-2">
-          Members join at: <strong className="break-all">{origin}/invest/{event.slug}</strong>
+          Members join at: <strong className="break-all">{origin}/{event.slug}</strong>
         </p>
       </header>
 

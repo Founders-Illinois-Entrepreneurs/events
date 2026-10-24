@@ -92,7 +92,7 @@ function EventRow({ e }: { e: ClubEvent }) {
       <div>
         <h3 className="display text-3xl">{e.name}</h3>
         <p className="mono text-xs text-ink-3">
-          /invest/{e.slug} · {money(e.starting_capital)} · {dateOnly(e.created_at)}
+          /{e.slug} · {money(e.starting_capital)} · {dateOnly(e.created_at)}
         </p>
       </div>
       <StatusChip status={e.status} />

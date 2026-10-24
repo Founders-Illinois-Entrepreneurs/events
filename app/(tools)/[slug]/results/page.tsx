@@ -22,7 +22,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ slug: 
   return (
     <div className="space-y-8">
       <header>
-        <Link href={`/invest/${slug}`} className="mono text-sm underline">
+        <Link href={`/${slug}`} className="mono text-sm underline">
           ← Back to {event.name}
         </Link>
         <h1 className="display mt-3 text-5xl sm:text-7xl">Results</h1>

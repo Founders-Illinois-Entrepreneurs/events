@@ -79,12 +79,16 @@ function track(fd: FormData) {
 
 const STATUSES: EventStatus[] = ['setup', 'open', 'closed', 'revealed']
 
+// Events live at /<slug>, so a slug can't reuse a path the site already has.
+const RESERVED_SLUGS = new Set(['admin', 'api', '_next'])
+
 // ---- Events ---------------------------------------------------------------
 
 export async function createEvent(fd: FormData) {
   const name = str(fd, 'name')
   const slug = slugify(str(fd, 'slug') || name)
   const clone = str(fd, 'clone_from') || null
+  if (RESERVED_SLUGS.has(slug)) return fail(`"${slug}" is reserved. Pick a different URL slug.`)
   let id = ''
   let capital: number | null = null
   try {

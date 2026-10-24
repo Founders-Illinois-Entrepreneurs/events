@@ -17,7 +17,7 @@ async function run(fn: (memberId: string) => Promise<unknown>, slug?: string): P
   } catch (e) {
     return { error: errorMessage(e) }
   } finally {
-    if (slug) revalidatePath(`/invest/${slug}`)
+    if (slug) revalidatePath(`/${slug}`)
   }
 }
 
@@ -29,7 +29,7 @@ export async function joinTeam(teamId: string, slug: string, names: string): Pro
   } catch (e) {
     return { error: errorMessage(e) }
   } finally {
-    revalidatePath(`/invest/${slug}`)
+    revalidatePath(`/${slug}`)
   }
 }
 

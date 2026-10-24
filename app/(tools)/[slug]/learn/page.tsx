@@ -26,7 +26,7 @@ export default async function LearnPage({ params }: { params: Promise<{ slug: st
   return (
     <div className="space-y-8">
       <header className="max-w-3xl">
-        <Link href={`/invest/${slug}`} className="mono text-sm underline">
+        <Link href={`/${slug}`} className="mono text-sm underline">
           ← Back to {event.name}
         </Link>
         <h1 className="display mt-3 text-5xl sm:text-7xl">What investors look for</h1>
