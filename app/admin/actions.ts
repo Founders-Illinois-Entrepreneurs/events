@@ -80,7 +80,17 @@ function track(fd: FormData) {
 const STATUSES: EventStatus[] = ['setup', 'open', 'closed', 'revealed']
 
 // Events live at /<slug>, so a slug can't reuse a path the site already has.
-const RESERVED_SLUGS = new Set(['admin', 'api', '_next'])
+const RESERVED_SLUGS = new Set(['admin', 'api'])
+
+// Deletes sign-ins that are no longer on any table (like Reset event does).
+async function forgetMembers(ids: string[]) {
+  if (ids.length === 0) return
+  await query(
+    `delete from members m where m.id = any($1::text[])
+     and not exists (select 1 from invest_team_members t where t.user_id = m.id)`,
+    [ids],
+  )
+}
 
 // ---- Events ---------------------------------------------------------------
 
@@ -160,7 +170,9 @@ export async function deleteEvent(fd: FormData) {
   await admin(async () => {
     const ev = await one<{ slug: string }>('select slug from events where id = $1', [id])
     if (!ev || str(fd, 'confirm').toLowerCase() !== ev.slug) throw new Error('Type the event slug exactly to delete it.')
+    const gone = await query<{ user_id: string }>('select user_id from invest_team_members where event_id = $1', [id])
     await query('delete from events where id = $1', [id])
+    await forgetMembers(gone.map((m) => m.user_id))
   }, undefined, { cleanUrl: false })
   redirect('/admin')
 }
@@ -240,10 +252,10 @@ export async function deleteInvestorTeam(fd: FormData) {
 export async function moveMember(fd: FormData) {
   const eventId = str(fd, 'event_id')
   const userId = str(fd, 'user_id')
-  await admin(
-    () => query('delete from invest_team_members where event_id = $1 and user_id = $2', [eventId, userId]),
-    eventId,
-  )
+  await admin(async () => {
+    await query('delete from invest_team_members where event_id = $1 and user_id = $2', [eventId, userId])
+    await forgetMembers([userId])
+  }, eventId)
 }
 
 export async function unlockSubmission(fd: FormData) {

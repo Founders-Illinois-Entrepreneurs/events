@@ -75,7 +75,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
             <p className="display mt-1 text-3xl">{team.name}</p>
             <p className="text-sm text-ink-2">{teammates.map((t) => t.name).join(' · ')}</p>
           </div>
-          {canChangeTeam && allocations.length === 0 && <LeaveTeamButton eventId={event.id} slug={slug} />}
+          {canChangeTeam && allocations.length === 0 && scores.length === 0 && <LeaveTeamButton eventId={event.id} slug={slug} />}
         </section>
       ) : canChangeTeam ? (
         <JoinTeams teams={teamCounts} slug={slug} knownName={me?.name ?? null} />

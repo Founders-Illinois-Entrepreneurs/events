@@ -414,7 +414,13 @@ export default function InvestForm({
                   autoComplete="off"
                   placeholder="0"
                   value={amountText?.id === p.id ? amountText.text : d.amount ? d.amount.toLocaleString('en-US') : ''}
-                  onFocus={() => setAmountText({ id: p.id, text: d.amount ? String(d.amount) : '' })}
+                  onFocus={(e) => {
+                    // Swapping in the plain number drops the browser's selection, so select it again:
+                    // typing then replaces the amount instead of adding digits to it.
+                    const el = e.currentTarget
+                    setAmountText({ id: p.id, text: d.amount ? String(d.amount) : '' })
+                    requestAnimationFrame(() => el.select())
+                  }}
                   onBlur={() => setAmountText(null)}
                   onChange={(e) => {
                     setAmountText({ id: p.id, text: e.target.value })
