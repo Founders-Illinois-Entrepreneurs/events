@@ -15,7 +15,7 @@ import LeaveTeamButton from './LeaveTeamButton'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const event = await getEventBySlug((await params).slug)
-  return { title: event?.name ?? 'Event' }
+  return { title: event?.name ?? 'Page not found' }
 }
 
 export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {

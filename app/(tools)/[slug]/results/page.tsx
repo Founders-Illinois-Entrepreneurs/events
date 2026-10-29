@@ -7,7 +7,7 @@ import ResultsView, { FeedbackList } from '@/components/invest/ResultsView'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const event = await getEventBySlug((await params).slug)
-  return { title: event ? `Results · ${event.name}` : 'Results' }
+  return { title: event ? `Results · ${event.name}` : 'Page not found' }
 }
 
 export default async function ResultsPage({ params }: { params: Promise<{ slug: string }> }) {

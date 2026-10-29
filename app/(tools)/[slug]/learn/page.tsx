@@ -9,7 +9,7 @@ import { Checklist, ScoreBadge, ScoreGuide } from '@/components/invest/Rubric'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const event = await getEventBySlug((await params).slug)
-  return { title: event ? `What investors look for · ${event.name}` : 'What investors look for' }
+  return { title: event ? `What investors look for · ${event.name}` : 'Page not found' }
 }
 
 export default async function LearnPage({ params }: { params: Promise<{ slug: string }> }) {
