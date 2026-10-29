@@ -4,6 +4,13 @@ Each event release is tagged (e.g. `v2026-fall-midpoint`). See the README sectio
 
 ## Unreleased
 
+### Changed
+- Moved to the club's accounts: the `Founders-Illinois-Entrepreneurs/events` repo, the club's Vercel account, and a Neon database added through Vercel. Event data was copied over unchanged.
+
+## v2026-fall-midpoint (2026-10-25)
+
+First real event: the Fall 2026 R&D midpoint pitches, at events.foundersillinois.org/rd-midpoint-fa26.
+
 ### Added
 - Founders Tools platform: no-account access (members type a name; organizers use one password), shared events table, Founders theme and logos.
 - R&D Pitch Evaluation game: own-venture and startup-partner tracks, investor teams, invest-everything rule, written reason and "invest more if" per R&D team, 7-pillar rubric, one phone per table, lock on submit.
@@ -18,6 +25,11 @@ Each event release is tagged (e.g. `v2026-fall-midpoint`). See the README sectio
 - Rebuilt "What investors look for" page: how-it-works steps, the 1–5 scale, checklists, a Solution vs. Product callout, and a separate startup-partner section in each pillar.
 
 ### Fixed
+- Event pages are at `events.foundersillinois.org/<slug>` (they were at `/invest/<slug>`). Slugs that clash with site paths are refused.
+- Typing into an amount box after tabbing into it replaces the amount instead of adding digits to it.
+- "Wrong table?" is hidden once a table has saved scores, since the server refuses the move then.
+- Deleting an event or freeing a table also deletes sign-ins that are no longer on any table.
+- A styled 404 page, and security headers that stop other sites from framing the pages.
 - Times on the site use the club's time zone (America/Chicago; `TIME_ZONE` to change), not the server's UTC.
 - "Use suggested amounts" waits until every team is fully scored, so an unscored team can't get $0 by accident. The split defaults to "In proportion".
 - Phones recover on their own if the organizer changes the rubric or teams mid-event.

@@ -101,26 +101,48 @@ scripts/test-db.mjs           Database tests (no server needed)
 public/brand/                 Official Founders logos
 ```
 
-## Setup (about 10 minutes)
+## Where it runs
 
-1. **Database.**
-   - Create a free [Neon](https://neon.tech) project.
-   - Click **Connect** and copy the **pooled** connection string. Its host contains `-pooler`.
-2. **Local settings.**
+Everything is owned by the club, not by a person, so it carries over between officers.
+
+| What | Where |
+| --- | --- |
+| Code | This repo, in the `Founders-Illinois-Entrepreneurs` GitHub org |
+| Hosting | Vercel project `events`, in the club's shared Vercel account (free Hobby plan) |
+| Database | Neon Postgres (free plan), added through the Vercel project's **Storage** tab. Connected to **Production** only, so test builds of pull requests can't change event data. |
+| Domain | `events.foundersillinois.org`: a CNAME record in Namecheap DNS points it at Vercel |
+| Settings | `DATABASE_URL` (set by the Neon integration) and `ADMIN_PASSWORD`, in Vercel → `events` → Settings → Environment Variables |
+
+Merging to `main` deploys to production. Pull requests get a preview link, but previews have no database, so test with a local setup instead.
+
+To change the organizer password, update `ADMIN_PASSWORD` in Vercel and redeploy. Everyone who was signed in as an organizer gets signed out.
+
+## Local development
+
+Never develop against the production database: it holds every past event's results.
+
+1. **Get your own database.** Either option is free:
+   - In the club's Vercel account: `events` → **Storage** → the Neon database → **Open in Neon** → **Branches** → create a branch named after you. A branch is a private copy of the data. Copy its **pooled** connection string (the host contains `-pooler`).
+   - Or create your own free [Neon](https://neon.tech) project.
+2. **Run it.**
    ```bash
    npm install
-   cp .env.example .env.local   # paste DATABASE_URL, choose an ADMIN_PASSWORD
+   cp .env.example .env.local   # paste your DATABASE_URL, choose any ADMIN_PASSWORD
    npm run db:migrate           # creates the tables (add `-- --seed` for a demo event)
    npm run dev                  # http://localhost:3000, organizers sign in at /admin
    ```
-3. **Deploy.**
-   - Import the repo in [Vercel](https://vercel.com) .
-   - Add the same two environment variables, `DATABASE_URL` and `ADMIN_PASSWORD`.
-   - Deploy.
 
-Tip: create a Neon **branch** (e.g. `dev`) for local testing, so you never test against event-night data.
+## Changing the database
 
-To change the organizer password, update `ADMIN_PASSWORD` and redeploy. Everyone who was signed in as an organizer gets signed out.
+1. Add a **new** numbered file in `db/migrations/` (e.g. `0009_add_polls.sql`). Never edit one that has already run in production.
+2. Run `npm run db:migrate` against your own database and `npm run test:db`.
+3. **Before** merging, an officer with Vercel access applies it to production. These commands use the production database without saving it to disk:
+   ```bash
+   vercel env pull .env.production.local --environment production
+   node --env-file=.env.production.local scripts/migrate.mjs
+   rm .env.production.local
+   ```
+   Write migrations so the code that's live now still works with them: add tables and columns rather than renaming or dropping them.
 
 ## Checking your work
 
@@ -131,10 +153,7 @@ npm run typecheck
 npm run build
 ```
 
-Changing the database:
-- Add a **new** numbered file in `db/migrations/` (e.g. `0004_add_polls.sql`), then run `npm run db:migrate`.
-- Never edit a migration that has already been applied.
-- Add tests to `scripts/test-db.mjs`.
+When you change the database, add tests to `scripts/test-db.mjs` too. See [Changing the database](#changing-the-database).
 
 ## Versions and history
 
