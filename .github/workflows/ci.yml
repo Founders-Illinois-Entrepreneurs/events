@@ -6,35 +6,14 @@ on:
   pull_request:
 
 jobs:
-  # Decides which apps changed, so each app's checks only run when needed.
-  changes:
+  check:
     runs-on: ubuntu-latest
-    outputs:
-      events: ${{ steps.filter.outputs.events }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            events:
-              - 'apps/events/**'
-              - '.github/workflows/ci.yml'
-
-  events:
-    needs: changes
-    if: needs.changes.outputs.events == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/events
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: apps/events/package-lock.json
       - run: npm ci
       - run: npm run test:db
       - run: npm run lint
@@ -42,11 +21,3 @@ jobs:
       - run: npm run build
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
-
-  # The one check branch rules require. It passes when every app job passed or was skipped.
-  ci-ok:
-    if: always()
-    needs: [changes, events]
-    runs-on: ubuntu-latest
-    steps:
-      - run: '[[ "${{ contains(needs.*.result, ''failure'') || contains(needs.*.result, ''cancelled'') }}" == "false" ]]'

@@ -1,3 +1,2 @@
-# Who reviews changes to each part of the repo. Owners are asked for review automatically.
-*                @amey-gupt
-/apps/events/    @amey-gupt
+# Owners are asked to review pull requests automatically.
+*  @amey-gupt

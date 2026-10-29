@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             Organizers
           </Link>
           {' · '}
-          <a className="underline" href="https://github.com/Founders-Illinois-Entrepreneurs/founders-tools/tree/main/apps/events">Source on GitHub</a>
+          <a className="underline" href="https://github.com/Founders-Illinois-Entrepreneurs/events">Source on GitHub</a>
         </footer>
       </body>
     </html>
