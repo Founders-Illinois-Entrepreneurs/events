@@ -206,7 +206,7 @@ For a new tool inside this app (one that shares the events, sign-in and theme):
 
 ## Credits
 
-Thank you to everyone who built this. If you contributed, add yourself here in your pull request. A LinkedIn link is optional.
+Thank you to everyone who built this. If you contributed, add yourself here in your pull request, with a link to your GitHub profile.
 
 - **Will Garrett** ([GitHub](https://github.com/wgarrett707)): original [investment-game](https://github.com/wgarrett707/investment-game) that this app grew from.
 - **Amey Gupta** ([GitHub](https://github.com/amey-gupt)): R&D pitch evaluation game.
