@@ -78,8 +78,8 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <h2 className="display text-3xl">Organizer access</h2>
         <p className="text-sm text-ink-2">
           Anyone with the organizer password can run events. To change it, update{' '}
-          <span className="mono">ADMIN_PASSWORD</span> in Vercel (and <span className="mono">.env.local</span>) and
-          redeploy. Everyone gets signed out.
+          <span className="mono">ADMIN_PASSWORD</span> in Vercel and redeploy. All organizers get
+          signed out.
         </p>
       </section>
     </div>

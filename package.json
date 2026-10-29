@@ -1,5 +1,6 @@
 {
-  "name": "founders-tools",
+  "name": "events",
+  "description": "Live tools for Founders · Illinois Entrepreneurs events (events.foundersillinois.org)",
   "version": "0.1.0",
   "private": true,
   "scripts": {
