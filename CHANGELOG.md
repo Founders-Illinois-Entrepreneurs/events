@@ -1,6 +1,6 @@
 # Changelog
 
-Each event release is tagged (e.g. `v2026-fall-midpoint`). See the README section "Versions and history" for how to run an older version.
+Each event release is tagged (e.g. `v2026-fall-midpoint`). Each event's folder (e.g. `rd-midpoint-fa26/`) names the tag it used. To run an old version, check out its tag and point it at a fresh Neon branch, since old code may not match the newer database.
 
 ## Unreleased
 
